@@ -2,34 +2,42 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Шахтёр</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg: #1a1a2e;
+      --card: #16213e;
+      --text: #eee;
+      --accent: #e15f41;
+      --accent2: #f7d794;
+      --btn-text: #fff;
+    }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: var(--tg-theme-bg-color, #1a1a2e);
-      color: var(--tg-theme-text-color, #eee);
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 16px;
       display: flex;
       justify-content: center;
-      align-items: center;
+      align-items: flex-start;
       min-height: 100vh;
       transition: background 0.3s;
     }
     .game {
       width: 100%;
       max-width: 420px;
-      padding: 20px;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 16px;
     }
     .resources {
       display: flex;
       justify-content: space-between;
-      background: var(--tg-theme-secondary-bg-color, #16213e);
+      background: var(--card);
       border-radius: 16px;
-      padding: 15px 20px;
+      padding: 14px 18px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     }
     .resource {
@@ -39,24 +47,24 @@
       font-weight: 600;
     }
     .resource span {
-      font-size: 1.1em;
+      font-size: 1.05em;
     }
     .actions {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 15px;
+      gap: 12px;
     }
     .mine-btn {
-      width: 120px;
-      height: 120px;
+      width: 110px;
+      height: 110px;
       border-radius: 50%;
-      background: radial-gradient(circle at 30% 30%, #f7d794, #e15f41);
+      background: radial-gradient(circle at 30% 30%, var(--accent2), var(--accent));
       border: none;
       color: white;
-      font-size: 2.2em;
+      font-size: 2.4em;
       cursor: pointer;
-      box-shadow: 0 8px 20px rgba(225,95,65,0.5);
+      box-shadow: 0 8px 24px rgba(225,95,65,0.5);
       transition: transform 0.1s, box-shadow 0.1s;
       display: flex;
       align-items: center;
@@ -65,34 +73,34 @@
     }
     .mine-btn:active {
       transform: scale(0.92);
-      box-shadow: 0 4px 10px rgba(225,95,65,0.7);
+      box-shadow: 0 4px 12px rgba(225,95,65,0.7);
     }
     .sell-panel {
-      background: var(--tg-theme-secondary-bg-color, #16213e);
+      background: var(--card);
       border-radius: 16px;
-      padding: 15px;
-      width: 100%;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .sell-row {
+      padding: 14px 18px;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
     button {
-      background: #e15f41;
+      background: var(--accent);
       border: none;
-      color: white;
+      color: var(--btn-text);
       padding: 10px 18px;
-      border-radius: 12px;
+      border-radius: 14px;
       font-weight: 600;
       cursor: pointer;
-      transition: background 0.2s;
+      transition: background 0.2s, opacity 0.2s;
       user-select: none;
+      font-size: 0.9em;
     }
     button:active { background: #c14932; }
+    button:disabled {
+      opacity: 0.5;
+      pointer-events: none;
+      filter: grayscale(0.3);
+    }
     button.dark {
       background: #2c3e50;
     }
@@ -103,158 +111,215 @@
     }
     .tab {
       padding: 10px 18px;
-      background: var(--tg-theme-secondary-bg-color, #16213e);
-      border-radius: 12px;
+      background: var(--card);
+      border-radius: 14px;
       cursor: pointer;
       font-weight: 600;
       opacity: 0.7;
+      transition: 0.2s;
     }
     .tab.active {
       opacity: 1;
-      background: #e15f41;
+      background: var(--accent);
     }
     .content {
-      background: var(--tg-theme-secondary-bg-color, #16213e);
+      background: var(--card);
       border-radius: 16px;
       padding: 15px;
-      min-height: 150px;
+      min-height: 180px;
     }
-    .shop-item, .quest-item {
+    .shop-item, .miner-row, .quest-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
       padding: 10px 0;
-      border-bottom: 1px solid rgba(255,255,255,0.1);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
     }
-    .shop-item:last-child, .quest-item:last-child {
+    .shop-item:last-child, .miner-row:last-child, .quest-item:last-child {
       border-bottom: none;
     }
-    .btn-sm { padding: 6px 14px; font-size: 0.9em; }
-    .offline-info {
-      text-align: center;
-      font-size: 0.9em;
-      opacity: 0.8;
+    .btn-sm { padding: 6px 14px; font-size: 0.85em; }
+    .offline-info { text-align: center; font-size: 0.85em; opacity: 0.8; }
+    .prod { font-size: 0.8em; opacity: 0.7; }
+    .loot-popup {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #2c3e50;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 16px;
+      z-index: 999;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.5);
+      font-weight: 600;
+      animation: fadeInOut 2.5s forwards;
     }
-    .timer-text { font-size: 0.8em; opacity: 0.8; }
-    .disabled-btn { opacity: 0.5; pointer-events: none; }
-    .progress { font-size: 0.8em; color: #ccc; }
+    @keyframes fadeInOut {
+      0% { opacity: 0; top: 0; }
+      15% { opacity: 1; top: 20px; }
+      75% { opacity: 1; top: 20px; }
+      100% { opacity: 0; top: 0; }
+    }
+    .crit { color: #ffd700; }
   </style>
 </head>
 <body>
 <div class="game">
-  <!-- Ресурсы -->
   <div class="resources">
-    <div class="resource">💎 <span id="diamondDisplay">0</span></div>
+    <div class="resource">💎 <span id="diamondsDisplay">0</span></div>
     <div class="resource">💰 <span id="moneyDisplay">0</span></div>
     <div class="resource">🛢️ <span id="oilDisplay">0</span></div>
   </div>
 
-  <!-- Действия -->
   <div class="actions">
     <button class="mine-btn" id="mineButton">⛏️</button>
-    <div style="font-size:0.9em;opacity:0.7;">+<span id="clickValue">1</span> за клик</div>
-    <div class="offline-info" id="autoInfo">🛠️ авто-шахтёры: 0 (+0.0/сек)</div>
+    <div style="font-size:0.9em; opacity:0.7;">+<span id="clickValue">1</span> за клик</div>
+    <div class="offline-info" id="autoInfo">⛏️ добыча: 0 💎/сек | 🛢️ 0/сек</div>
   </div>
 
-  <!-- Продажа алмазов -->
   <div class="sell-panel">
-    <div class="sell-row">
-      <span>💎 → 💰 Курс: 1 = 0.5</span>
-      <button id="sellAllBtn" class="dark">Продать всё</button>
-    </div>
+    <span>💎 → 💰 1 = 0.1</span>
+    <button id="sellAllBtn" class="dark">Продать всё</button>
   </div>
 
-  <!-- Вкладки -->
   <div class="tabs">
-    <div class="tab active" data-tab="shop">🛒 Магазин</div>
+    <div class="tab active" data-tab="miners">👷 Шахтёры</div>
+    <div class="tab" data-tab="shop">🛒 Магазин</div>
     <div class="tab" data-tab="premium">⭐ Премиум</div>
-    <div class="tab" data-tab="quests">📋 Задания</div>
   </div>
 
-  <!-- Контент вкладок -->
   <div class="content" id="tabContent"></div>
 </div>
 
 <script>
   (function() {
-    // Telegram WebApp
+    // Telegram WebApp (не обязательно для работы)
     const tg = window.Telegram?.WebApp;
     if (tg) {
       tg.ready();
       tg.expand();
-      // можно использовать tg.colorScheme для тёмной/светлой темы
     }
 
     // ---------- СОСТОЯНИЕ ----------
-    let state = {
+    const defaultState = {
       diamonds: 0,
       money: 0,
       oil: 0,
-      pickaxeLevel: 1,      // даёт +pickaxeLevel алмазов за клик
-      autoMiners: 0,        // каждый даёт 0.2 алмаза в секунду
-      lastSaveTime: Date.now(),
-      // отслеживание заданий
+      pickaxeLevel: 1,            // базовый клик = 1 алмаз (далее +pickaxeLevel)
+      // шахтёры 1-7: количество
+      miners: [0, 0, 0, 0, 0, 0, 0],
+      oilMiner: 0,               // количество нефтяных шахтёров (8 уровень)
+      // бонусы
+      globalMinerMult: 1.0,      // множитель производительности шахтёров
+      flatMinerBonus: 0,         // плоский бонус к каждому шахтёру (алмазы/сек)
+      oilPerSecBonus: 0,         // дополнительная нефть/сек
+      critChance: 0,             // шанс крит. клика (x2)
+      // ежедневный бонус
+      dailyOilDate: null,
+      // задания
+      completedQuests: [],
+      // статистика для заданий
       totalClicks: 0,
-      totalDiamondsMined: 0, // всего добыто алмазов (без продаж)
-      upgradesBought: 0,
-      oilSpent: 0,
-      // получен ли сегодня ежедневный бонус нефти (с датой)
-      dailyOilDate: null,    // строка даты YYYY-MM-DD
-      // выполненные задания (id заданий, которые уже забрали)
-      completedQuests: []
+      totalDiamondsMined: 0,
+      totalMinersHired: 0,       // общее количество нанятых шахтёров (сумма по всем)
+      totalUpgrades: 0,          // покупки кирки + боксы
+      lastSaveTime: Date.now()
     };
 
-    // Загрузка из localStorage
+    let state = { ...defaultState };
+
+    // Параметры шахтёров 1-7
+    const minerLevels = [
+      { lvl: 1, baseProd: 0.1, cost: 10 },
+      { lvl: 2, baseProd: 0.25, cost: 25 },
+      { lvl: 3, baseProd: 0.5, cost: 60 },
+      { lvl: 4, baseProd: 1.0, cost: 150 },
+      { lvl: 5, baseProd: 2.0, cost: 400 },
+      { lvl: 6, baseProd: 4.0, cost: 1000 },
+      { lvl: 7, baseProd: 8.0, cost: 3000 }
+    ];
+
+    const OIL_MINER_COST = 200;   // в нефти
+    const OIL_MINER_PROD = 0.05; // нефти/сек
+
+    // Цена улучшения кирки
+    function getPickaxeUpgradeCost() {
+      return Math.floor(15 * Math.pow(1.5, state.pickaxeLevel - 1));
+    }
+
+    // ---------- ЗАГРУЗКА / СОХРАНЕНИЕ ----------
     function loadState() {
       try {
-        const saved = localStorage.getItem('minerGameState');
+        const saved = localStorage.getItem('minerGameV2');
         if (saved) {
           const parsed = JSON.parse(saved);
-          state = { ...state, ...parsed };
-          // конвертируем дату обратно, если была
-          if (state.dailyOilDate) {
-            // проверим, сегодня ли
+          state = { ...defaultState, ...parsed };
+          // валидация массивов
+          if (!Array.isArray(state.miners) || state.miners.length !== 7) {
+            state.miners = [0,0,0,0,0,0,0];
           }
+          if (!Array.isArray(state.completedQuests)) state.completedQuests = [];
         }
-      } catch (e) {}
+      } catch(e) {}
     }
 
     function saveState() {
       state.lastSaveTime = Date.now();
       try {
-        localStorage.setItem('minerGameState', JSON.stringify(state));
-      } catch (e) {}
+        localStorage.setItem('minerGameV2', JSON.stringify(state));
+      } catch(e) {}
     }
 
-    // Офлайн-прогресс: автошахтёры работали, пока игра была закрыта
+    // Офлайн-прогресс
     function applyOfflineProgress() {
       const now = Date.now();
-      const elapsed = (now - state.lastSaveTime) / 1000; // секунды
-      if (elapsed > 5 && state.autoMiners > 0) {
-        const maxOfflineSec = 8 * 3600; // макс. 8 часов
-        const effectiveSec = Math.min(elapsed, maxOfflineSec);
-        const offlineDiamonds = state.autoMiners * 0.2 * effectiveSec;
-        state.diamonds += offlineDiamonds;
-        state.totalDiamondsMined += offlineDiamonds; // считаем добытыми
-        // покажем уведомление
-        if (offlineDiamonds > 1) {
-          showOfflineNotification(Math.floor(offlineDiamonds));
+      const elapsedSec = (now - (state.lastSaveTime || now)) / 1000;
+      if (elapsedSec < 5) return;
+      const maxOffline = 8 * 3600; // 8 часов
+      const effectiveSec = Math.min(elapsedSec, maxOffline);
+
+      // подсчёт общей добычи шахтёров + нефть
+      let offlineDiamonds = 0;
+      let offlineOil = 0;
+      for (let i = 0; i < 7; i++) {
+        const count = state.miners[i];
+        if (count > 0) {
+          const prod = minerLevels[i].baseProd * state.globalMinerMult + state.flatMinerBonus;
+          offlineDiamonds += prod * count * effectiveSec;
         }
+      }
+      if (state.oilMiner > 0) {
+        offlineOil += state.oilMiner * OIL_MINER_PROD * effectiveSec;
+      }
+      offlineOil += state.oilPerSecBonus * effectiveSec;
+
+      if (offlineDiamonds > 0.5 || offlineOil > 0.001) {
+        state.diamonds += offlineDiamonds;
+        state.totalDiamondsMined += offlineDiamonds;
+        state.oil += offlineOil;
+        showPopup(`⏳ Пока вас не было:\n💎 +${Math.floor(offlineDiamonds)}\n🛢️ +${offlineOil.toFixed(2)}`);
       }
     }
 
-    function showOfflineNotification(amount) {
+    function showPopup(text) {
       const div = document.createElement('div');
-      div.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#2c3e50;color:white;padding:12px 24px;border-radius:16px;z-index:999;box-shadow:0 8px 20px rgba(0,0,0,0.5);';
-      div.textContent = `⛏️ Пока вас не было, шахтёры добыли ${amount}💎`;
+      div.className = 'loot-popup';
+      div.textContent = text;
       document.body.appendChild(div);
-      setTimeout(() => div.remove(), 4000);
+      setTimeout(() => div.remove(), 2500);
     }
 
     // ---------- ИГРОВЫЕ ФУНКЦИИ ----------
     function mineClick() {
-      state.diamonds += state.pickaxeLevel;
-      state.totalDiamondsMined += state.pickaxeLevel;
+      let gain = state.pickaxeLevel;
+      // шанс крита
+      if (state.critChance > 0 && Math.random() < state.critChance) {
+        gain *= 2;
+        showPopup('💥 Критический удар! x2');
+      }
+      state.diamonds += gain;
+      state.totalDiamondsMined += gain;
       state.totalClicks++;
       updateUI();
       saveState();
@@ -263,7 +328,7 @@
 
     function sellAllDiamonds() {
       if (state.diamonds <= 0) return;
-      const moneyGain = Math.floor(state.diamonds * 0.5);
+      const moneyGain = Math.floor(state.diamonds * 0.1);
       state.money += moneyGain;
       state.diamonds = 0;
       updateUI();
@@ -275,103 +340,133 @@
       if (state.money >= cost) {
         state.money -= cost;
         state.pickaxeLevel++;
-        state.upgradesBought++;
+        state.totalUpgrades++;
         updateUI();
         saveState();
         checkQuests();
       }
     }
 
-    function getPickaxeUpgradeCost() {
-      return 10 * state.pickaxeLevel;
-    }
-
-    function buyAutoMiner() {
-      const cost = getAutoMinerCost();
+    function hireMiner(levelIndex) {
+      if (levelIndex < 0 || levelIndex > 6) return;
+      const cost = minerLevels[levelIndex].cost;
       if (state.money >= cost) {
         state.money -= cost;
-        state.autoMiners++;
-        state.upgradesBought++;
+        state.miners[levelIndex]++;
+        state.totalMinersHired++;
         updateUI();
         saveState();
         checkQuests();
       }
     }
 
-    function getAutoMinerCost() {
-      return 50 + 15 * state.autoMiners;
-    }
-
-    // Премиум-покупки за нефть
-    function buySuperPickaxe() {
-      const cost = 5;
-      if (state.oil >= cost) {
-        state.oil -= cost;
-        state.pickaxeLevel += 5; // мощный апгрейд
-        state.oilSpent += cost;
+    function hireOilMiner() {
+      if (state.oil >= OIL_MINER_COST) {
+        state.oil -= OIL_MINER_COST;
+        state.oilMiner++;
+        state.totalMinersHired++;
         updateUI();
         saveState();
         checkQuests();
       }
     }
 
-    function buyOilDrill() {
-      // Даёт +0.1 нефти в день? Сделаем просто пассивный бонус: авто-шахтёры добывают +20% алмазов
-      const cost = 15;
-      if (state.oil >= cost && !state.oilDrillBought) {
-        state.oil -= cost;
-        state.oilDrillBought = true;
-        state.oilSpent += cost;
-        updateUI();
-        saveState();
+    // Боксы
+    function openNormalBox() {
+      const cost = 100; // деньги
+      if (state.money < cost) return;
+      state.money -= cost;
+      state.totalUpgrades++;
+      // случайная награда
+      const r = Math.random();
+      let lootText = '';
+      if (r < 0.3) {
+        state.diamonds += 20;
+        lootText = '💎 +20 алмазов';
+      } else if (r < 0.55) {
+        state.oil += 5;
+        lootText = '🛢️ +5 нефти';
+      } else if (r < 0.75) {
+        state.globalMinerMult += 0.1;
+        lootText = '⚙️ +10% к добыче шахтёров';
+      } else if (r < 0.9) {
+        state.flatMinerBonus += 0.5;
+        lootText = '📈 +0.5 к добыче каждого шахтёра';
+      } else {
+        state.pickaxeLevel += 1;
+        lootText = '⛏️ +1 уровень кирки';
       }
+      showPopup('📦 Обычный бокс: ' + lootText);
+      updateUI();
+      saveState();
+      checkQuests();
     }
 
-    function buyX2Boost() {
-      const cost = 3;
-      if (state.oil >= cost) {
-        state.oil -= cost;
-        // Активируем x2 бустер на 30 минут
-        const boostEnd = Date.now() + 30 * 60 * 1000;
-        state.boostEnd = boostEnd;
-        state.oilSpent += cost;
-        updateUI();
-        saveState();
+    function openPremiumBox() {
+      const cost = 10; // нефть
+      if (state.oil < cost) return;
+      state.oil -= cost;
+      state.totalUpgrades++;
+      const r = Math.random();
+      let lootText = '';
+      if (r < 0.25) {
+        state.globalMinerMult += 0.5;
+        lootText = '⚙️ +50% к добыче шахтёров';
+      } else if (r < 0.45) {
+        state.oilPerSecBonus += 0.05;
+        lootText = '🛢️ +0.05 нефти/сек пассивно';
+      } else if (r < 0.65) {
+        state.flatMinerBonus += 3;
+        lootText = '📈 +3 к добыче каждого шахтёра';
+      } else if (r < 0.8) {
+        state.pickaxeLevel += 5;
+        lootText = '⛏️ +5 уровней кирки';
+      } else if (r < 0.92) {
+        state.oil += 50;
+        lootText = '🛢️ +50 нефти';
+      } else if (r < 0.98) {
+        state.critChance = Math.min(0.5, state.critChance + 0.1);
+        lootText = '💥 +10% шанс крит. клика (макс 50%)';
+      } else {
+        // очень редкий: бесплатный нефтяной шахтёр
+        state.oilMiner++;
+        lootText = '🛢️👷 Нефтяной шахтёр!';
       }
+      showPopup('✨ Премиум бокс: ' + lootText);
+      updateUI();
+      saveState();
+      checkQuests();
     }
 
-    // Бесплатная нефть (ежедневно)
+    // Ежедневный бонус нефти
     function claimDailyOil() {
       const today = new Date().toISOString().split('T')[0];
       if (state.dailyOilDate === today) return;
       state.dailyOilDate = today;
-      state.oil += 1;
+      state.oil += 2;  // ежедневно 2 нефти
       updateUI();
       saveState();
+      showPopup('🎁 Ежедневный бонус: +2 🛢️');
     }
 
-    // Проверка, можно ли забрать ежедневную нефть
-    function canClaimDailyOil() {
+    function canClaimDaily() {
       const today = new Date().toISOString().split('T')[0];
       return state.dailyOilDate !== today;
     }
 
     // ---------- ЗАДАНИЯ ----------
     const quests = [
-      { id: 'clicks10', desc: 'Сделать 10 кликов', check: () => state.totalClicks >= 10, reward: 1 },
-      { id: 'clicks50', desc: 'Сделать 50 кликов', check: () => state.totalClicks >= 50, reward: 2 },
-      { id: 'diamonds100', desc: 'Добыть 100 алмазов', check: () => state.totalDiamondsMined >= 100, reward: 1 },
-      { id: 'diamonds500', desc: 'Добыть 500 алмазов', check: () => state.totalDiamondsMined >= 500, reward: 2 },
-      { id: 'upgrade3', desc: 'Купить 3 улучшения', check: () => state.upgradesBought >= 3, reward: 2 },
-      { id: 'auto1', desc: 'Нанять шахтёра', check: () => state.autoMiners >= 1, reward: 1 },
-      { id: 'oilSpent5', desc: 'Потратить 5 нефти', check: () => state.oilSpent >= 5, reward: 3 },
-      { id: 'pickaxe5', desc: 'Уровень кирки 5', check: () => state.pickaxeLevel >= 5, reward: 2 },
+      { id: 'clicks20', desc: 'Сделать 20 кликов', check: () => state.totalClicks >= 20, reward: 1 },
+      { id: 'clicks100', desc: 'Сделать 100 кликов', check: () => state.totalClicks >= 100, reward: 2 },
+      { id: 'diamonds200', desc: 'Добыть 200 алмазов', check: () => state.totalDiamondsMined >= 200, reward: 1 },
+      { id: 'diamonds1000', desc: 'Добыть 1000 алмазов', check: () => state.totalDiamondsMined >= 1000, reward: 2 },
+      { id: 'hire5', desc: 'Нанять 5 шахтёров', check: () => state.totalMinersHired >= 5, reward: 2 },
+      { id: 'hire20', desc: 'Нанять 20 шахтёров', check: () => state.totalMinersHired >= 20, reward: 3 },
+      { id: 'pickaxe5', desc: 'Кирка 5 уровня', check: () => state.pickaxeLevel >= 5, reward: 1 },
+      { id: 'oilminer1', desc: 'Нанять нефтяного шахтёра', check: () => state.oilMiner >= 1, reward: 5 },
     ];
 
-    function checkQuests() {
-      // просто проверяем, не появились ли новые выполненные, но не засчитываем автоматически
-      // UI обновим
-    }
+    function checkQuests() { /* визуально обновим, но награду не даём автоматом */ }
 
     function claimQuestReward(questId) {
       const quest = quests.find(q => q.id === questId);
@@ -379,6 +474,7 @@
       if (quest.check()) {
         state.completedQuests.push(questId);
         state.oil += quest.reward;
+        showPopup(`📋 Задание: +${quest.reward} 🛢️`);
         updateUI();
         saveState();
         return true;
@@ -387,19 +483,30 @@
     }
 
     // ---------- UI РЕНДЕРИНГ ----------
-    let currentTab = 'shop';
+    let currentTab = 'miners';
 
     function updateUI() {
-      document.getElementById('diamondDisplay').textContent = Math.floor(state.diamonds);
-      document.getElementById('moneyDisplay').textContent = Math.floor(state.money);
-      document.getElementById('oilDisplay').textContent = Math.floor(state.oil);
+      const diamonds = Math.floor(state.diamonds);
+      const money = Math.floor(state.money);
+      const oil = Math.floor(state.oil * 100) / 100;
+      document.getElementById('diamondsDisplay').textContent = diamonds;
+      document.getElementById('moneyDisplay').textContent = money;
+      document.getElementById('oilDisplay').textContent = oil;
 
-      const clickVal = state.pickaxeLevel + (state.boostEnd && Date.now() < state.boostEnd ? state.pickaxeLevel : 0);
-      document.getElementById('clickValue').textContent = clickVal;
+      const clickGain = state.pickaxeLevel;
+      document.getElementById('clickValue').textContent = clickGain;
 
-      const autoSpeed = state.autoMiners * 0.2 * (state.oilDrillBought ? 1.2 : 1);
-      document.getElementById('autoInfo').textContent = 
-        `🛠️ авто-шахтёры: ${state.autoMiners} (+${autoSpeed.toFixed(1)}/сек)`;
+      // подсчёт общей добычи алмазов и нефти в секунду
+      let totalDiamondsPerSec = 0;
+      for (let i = 0; i < 7; i++) {
+        if (state.miners[i] > 0) {
+          const prod = minerLevels[i].baseProd * state.globalMinerMult + state.flatMinerBonus;
+          totalDiamondsPerSec += prod * state.miners[i];
+        }
+      }
+      let totalOilPerSec = state.oilMiner * OIL_MINER_PROD + state.oilPerSecBonus;
+      document.getElementById('autoInfo').innerHTML = 
+        `⛏️ ${totalDiamondsPerSec.toFixed(1)} 💎/сек | 🛢️ ${totalOilPerSec.toFixed(3)}/сек`;
 
       renderTab();
     }
@@ -407,140 +514,128 @@
     function renderTab() {
       const container = document.getElementById('tabContent');
       container.innerHTML = '';
-      if (currentTab === 'shop') {
-        renderShop(container);
-      } else if (currentTab === 'premium') {
-        renderPremium(container);
-      } else if (currentTab === 'quests') {
-        renderQuests(container);
+      if (currentTab === 'miners') renderMiners(container);
+      else if (currentTab === 'shop') renderShop(container);
+      else if (currentTab === 'premium') renderPremium(container);
+    }
+
+    function renderMiners(container) {
+      let html = '';
+      for (let i = 0; i < 7; i++) {
+        const ml = minerLevels[i];
+        const count = state.miners[i];
+        const prod = ml.baseProd * state.globalMinerMult + state.flatMinerBonus;
+        html += `
+          <div class="miner-row">
+            <div>
+              <div>👷 Шахтёр ур.${ml.lvl} (${count} шт.)</div>
+              <div class="prod">+${prod.toFixed(2)} 💎/сек каждый</div>
+            </div>
+            <button class="btn-sm" id="hireMiner${i}" ${state.money < ml.cost ? 'disabled' : ''}>
+              💰 ${ml.cost}
+            </button>
+          </div>`;
       }
+      // нефтяной шахтёр
+      html += `
+        <div class="miner-row">
+          <div>
+            <div>🛢️ Нефтяной шахтёр (${state.oilMiner} шт.)</div>
+            <div class="prod">+${OIL_MINER_PROD} 🛢️/сек</div>
+          </div>
+          <button class="btn-sm" id="hireOilMiner" ${state.oil < OIL_MINER_COST ? 'disabled' : ''}>
+            🛢️ ${OIL_MINER_COST}
+          </button>
+        </div>`;
+      container.innerHTML = html;
+
+      // привязываем события
+      for (let i = 0; i < 7; i++) {
+        document.getElementById(`hireMiner${i}`)?.addEventListener('click', () => hireMiner(i));
+      }
+      document.getElementById('hireOilMiner')?.addEventListener('click', hireOilMiner);
     }
 
     function renderShop(container) {
       const pickCost = getPickaxeUpgradeCost();
-      const minerCost = getAutoMinerCost();
-
       container.innerHTML = `
         <div class="shop-item">
           <div>
             <div>⛏️ Улучшить кирку (ур. ${state.pickaxeLevel})</div>
-            <div class="progress">+1 алмаз за клик (станет +${state.pickaxeLevel+1})</div>
+            <div class="prod">+${state.pickaxeLevel+1} за клик</div>
           </div>
           <button class="btn-sm" id="buyPickaxe" ${state.money < pickCost ? 'disabled' : ''}>💰 ${pickCost}</button>
         </div>
         <div class="shop-item">
           <div>
-            <div>🛠️ Нанять шахтёра (${state.autoMiners} шт.)</div>
-            <div class="progress">+0.2 алмаза/сек каждый</div>
+            <div>📦 Обычный бокс</div>
+            <div class="prod">Случайное улучшение</div>
           </div>
-          <button class="btn-sm" id="buyMiner" ${state.money < minerCost ? 'disabled' : ''}>💰 ${minerCost}</button>
+          <button class="btn-sm" id="normalBox" ${state.money < 100 ? 'disabled' : ''}>💰 100</button>
+        </div>
+        <div class="shop-item">
+          <div>
+            <div>✨ Премиум бокс</div>
+            <div class="prod">Мощные бонусы</div>
+          </div>
+          <button class="btn-sm" id="premiumBox" ${state.oil < 10 ? 'disabled' : ''}>🛢️ 10</button>
+        </div>
+        <div style="margin-top:10px; font-size:0.8em; opacity:0.6; text-align:center;">
+          Продажа алмазов: 1💎 = 0.1💰
         </div>
       `;
       document.getElementById('buyPickaxe')?.addEventListener('click', buyPickaxeUpgrade);
-      document.getElementById('buyMiner')?.addEventListener('click', buyAutoMiner);
+      document.getElementById('normalBox')?.addEventListener('click', openNormalBox);
+      document.getElementById('premiumBox')?.addEventListener('click', openPremiumBox);
     }
 
     function renderPremium(container) {
-      const boostActive = state.boostEnd && Date.now() < state.boostEnd;
-      const boostRemain = boostActive ? Math.max(0, Math.ceil((state.boostEnd - Date.now()) / 60000)) : 0;
-      const canDaily = canClaimDailyOil();
-
+      const canDaily = canClaimDaily();
       container.innerHTML = `
         <div class="shop-item">
           <div>
-            <div>⚡ Супер-кирка (+5 к уровню)</div>
-            <div class="progress">Мгновенное усиление</div>
-          </div>
-          <button class="btn-sm" id="buySuperPickaxe" ${state.oil < 5 ? 'disabled' : ''}>🛢️ 5</button>
-        </div>
-        <div class="shop-item">
-          <div>
-            <div>🛢️ Нефтяная вышка</div>
-            <div class="progress">Авто-шахтёры добывают на 20% больше (одноразово)</div>
-          </div>
-          <button class="btn-sm" id="buyOilDrill" ${state.oil < 15 || state.oilDrillBought ? 'disabled' : ''}>
-            🛢️ 15 ${state.oilDrillBought ? '✓' : ''}
-          </button>
-        </div>
-        <div class="shop-item">
-          <div>
-            <div>🔥 Бустер x2 (30 мин)</div>
-            <div class="progress">${boostActive ? `Активен: ${boostRemain} мин` : 'Удвойте добычу за клик'}</div>
-          </div>
-          <button class="btn-sm" id="buyX2Boost" ${state.oil < 3 || boostActive ? 'disabled' : ''}>🛢️ 3</button>
-        </div>
-        <div class="shop-item">
-          <div>
             <div>🎁 Ежедневная нефть</div>
-            <div class="progress">${canDaily ? 'Доступно!' : 'Уже получено сегодня'}</div>
+            <div class="prod">${canDaily ? 'Доступно: +2 🛢️' : 'Уже получено'}</div>
           </div>
-          <button class="btn-sm" id="dailyOilBtn" ${!canDaily ? 'disabled' : ''}>🛢️ +1</button>
+          <button class="btn-sm" id="dailyOilBtn" ${!canDaily ? 'disabled' : ''}>Забрать</button>
         </div>
-        <div style="margin-top:10px; font-size:0.8em; opacity:0.6; text-align:center;">
-          Нефть можно получить бесплатно или купить (демо)
+        <div style="margin-top:12px; font-weight:600;">📋 Задания</div>
+        <div id="questsContainer"></div>
+        <div style="margin-top:8px; font-size:0.8em; opacity:0.6; text-align:center;">
+          Нефть — премиум-валюта. Получайте в заданиях, боксах и ежедневно.
         </div>
       `;
 
-      document.getElementById('buySuperPickaxe')?.addEventListener('click', buySuperPickaxe);
-      document.getElementById('buyOilDrill')?.addEventListener('click', buyOilDrill);
-      document.getElementById('buyX2Boost')?.addEventListener('click', buyX2Boost);
       document.getElementById('dailyOilBtn')?.addEventListener('click', claimDailyOil);
-    }
 
-    function renderQuests(container) {
+      // рендерим задания
+      const qc = document.getElementById('questsContainer');
       quests.forEach(q => {
         const completed = state.completedQuests.includes(q.id);
         const canClaim = !completed && q.check();
-        const item = document.createElement('div');
-        item.className = 'quest-item';
-        item.innerHTML = `
+        const div = document.createElement('div');
+        div.className = 'quest-item';
+        div.innerHTML = `
           <div>
             <div>${q.desc}</div>
-            <div class="progress">Награда: 🛢️ ${q.reward}</div>
+            <div class="prod">Награда: 🛢️ ${q.reward}</div>
           </div>
-          <button class="btn-sm claim-quest-btn" data-id="${q.id}" ${!canClaim ? 'disabled' : ''}>
-            ${completed ? '✓' : 'Забрать'}
+          <button class="btn-sm claim-quest" data-id="${q.id}" ${!canClaim ? 'disabled' : ''}>
+            ${completed ? '✓' : 'Взять'}
           </button>
         `;
-        container.appendChild(item);
+        qc.appendChild(div);
       });
-
-      document.querySelectorAll('.claim-quest-btn').forEach(btn => {
+      document.querySelectorAll('.claim-quest').forEach(btn => {
         btn.addEventListener('click', (e) => {
           const id = e.target.dataset.id;
-          if (claimQuestReward(id)) {
-            updateUI();
-          }
+          claimQuestReward(id);
         });
       });
     }
 
-    // Авто-добыча от шахтёров (тик каждую секунду)
-    function autoMineTick() {
-      // Применяем бустер? Бустер только на клики, не на авто. По условию можно сделать, но оставим без бустера на авто.
-      let speed = state.autoMiners * 0.2;
-      if (state.oilDrillBought) speed *= 1.2;
-      if (speed > 0) {
-        state.diamonds += speed;
-        state.totalDiamondsMined += speed;
-        updateUI();
-        saveState();
-      }
-      // Обновляем UI каждую секунду для отображения бустера
-      updateUI();
-    }
-
-    // Инициализация
-    function init() {
-      loadState();
-      // применяем офлайн-прогресс
-      applyOfflineProgress();
-      updateUI();
-      // слушатели
-      document.getElementById('mineButton').addEventListener('click', mineClick);
-      document.getElementById('sellAllBtn').addEventListener('click', sellAllDiamonds);
-
-      // табы
+    // Переключение вкладок
+    function setupTabs() {
       document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', (e) => {
           document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -549,11 +644,43 @@
           updateUI();
         });
       });
+    }
 
-      // авто-добыча интервал
-      setInterval(autoMineTick, 1000);
+    // Авто-добыча (каждую секунду)
+    function autoTick() {
+      let diamondsGain = 0;
+      for (let i = 0; i < 7; i++) {
+        const cnt = state.miners[i];
+        if (cnt > 0) {
+          const prod = minerLevels[i].baseProd * state.globalMinerMult + state.flatMinerBonus;
+          diamondsGain += prod * cnt;
+        }
+      }
+      let oilGain = state.oilMiner * OIL_MINER_PROD + state.oilPerSecBonus;
 
-      // сохранение при выходе
+      if (diamondsGain > 0) {
+        state.diamonds += diamondsGain;
+        state.totalDiamondsMined += diamondsGain;
+      }
+      if (oilGain > 0) {
+        state.oil += oilGain;
+      }
+      updateUI();
+      saveState();
+      checkQuests();
+    }
+
+    // Инициализация
+    function init() {
+      loadState();
+      applyOfflineProgress();
+      updateUI();
+
+      document.getElementById('mineButton').addEventListener('click', mineClick);
+      document.getElementById('sellAllBtn').addEventListener('click', sellAllDiamonds);
+      setupTabs();
+
+      setInterval(autoTick, 1000);
       window.addEventListener('beforeunload', saveState);
     }
 
