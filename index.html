@@ -139,6 +139,10 @@
     .profile-field { margin: 8px 0; }
     .profile-field a { color: #f7d794; word-break: break-all; }
     .admin-panel { border: 2px solid gold; padding: 10px; border-radius: 12px; margin-top: 10px; }
+    .auth-block {
+      text-align: center;
+      padding: 40px 20px;
+    }
   </style>
 </head>
 <body>
@@ -171,40 +175,86 @@
     <div class="tab" data-tab="quests">📋 Задания</div>
     <div class="tab" data-tab="profile">👤 Профиль</div>
   </div>
-  <div class="content" id="tabContent"></div>
+  <div class="content" id="tabContent">
+    <!-- Сюда будет рендериться контент вкладок -->
+  </div>
+</div>
+
+<!-- Telegram Login Widget (скрыт по умолчанию, показывается при необходимости) -->
+<div id="authBlock" class="auth-block" style="display:none;">
+  <h2>🔐 Войдите через Telegram</h2>
+  <p>Подтвердите свою личность, чтобы начать игру.</p>
+  <div id="telegramLoginWidget"></div>
 </div>
 
 <script>
   (() => {
-    const BOT_USERNAME = 'minermine1_bot';
+    const BOT_USERNAME = 'minermine1_bot'; // ваш бот
+    const DOMAIN = 'shaxter-nukm0.vercel.app'; // ваш домен для авторизации
 
-    function showMessage(msg) {
-      document.body.innerHTML = `<div style="color:white; text-align:center; padding:40px;">${msg}</div>`;
-    }
-
+    // Пытаемся получить данные из Telegram Mini App
     const tg = window.Telegram?.WebApp;
-    if (!tg) {
-      showMessage('Ошибка: Telegram WebApp не обнаружен. Убедитесь, что вы открыли приложение внутри Telegram через кнопку меню бота.');
-      return;
+    let userId = null;
+    let user = null;
+    let isAdmin = false;
+
+    // Функция, которая запускает игру с известным ID
+    function startGame(userIdVal, userVal) {
+      userId = userIdVal;
+      user = userVal;
+      isAdmin = (userId === 998579758);
+      initGameLogic();
     }
 
-    tg.ready();
-    tg.expand();
+    // Пытаемся извлечь данные из URL (после редиректа виджета)
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('id') && urlParams.has('hash')) {
+      // Это возврат после авторизации через виджет
+      const receivedUser = {
+        id: parseInt(urlParams.get('id')),
+        first_name: urlParams.get('first_name') || '',
+        last_name: urlParams.get('last_name') || '',
+        username: urlParams.get('username') || '',
+        photo_url: urlParams.get('photo_url') || '',
+        auth_date: urlParams.get('auth_date'),
+        hash: urlParams.get('hash')
+      };
+      // В реальном проекте здесь нужно проверить хеш на сервере!
+      // Сохраняем в localStorage
+      localStorage.setItem('telegramUser', JSON.stringify(receivedUser));
+      // Убираем параметры из URL, чтобы не мешали
+      window.history.replaceState({}, document.title, window.location.pathname);
+      startGame(receivedUser.id, receivedUser);
+    } else if (tg && tg.initDataUnsafe?.user) {
+      // Mini App
+      const tgUser = tg.initDataUnsafe.user;
+      startGame(tgUser.id, tgUser);
+    } else {
+      // Ни Mini App, ни параметров – показываем виджет авторизации
+      showAuthWidget();
+    }
 
-    function initGame() {
-      const user = tg.initDataUnsafe?.user;
-      if (!user || !user.id) {
-        document.body.innerHTML = `
-          <div style="color:white; text-align:center; padding:40px;">
-            <p>Не удалось получить данные пользователя.</p>
-            <p>Пожалуйста, откройте мини-приложение через <b>кнопку меню</b> бота (рядом с полем ввода).</p>
-            <p style="margin-top:20px;">Или перейдите по ссылке: <a href="https://t.me/${BOT_USERNAME}/app" style="color:#f7d794;">https://t.me/${BOT_USERNAME}/app</a></p>
-          </div>`;
-        return;
-      }
+    function showAuthWidget() {
+      document.getElementById('gameContainer').style.display = 'none';
+      const authBlock = document.getElementById('authBlock');
+      authBlock.style.display = 'block';
+      // Вставляем виджет
+      const widgetDiv = document.getElementById('telegramLoginWidget');
+      widgetDiv.innerHTML = ''; // очищаем
+      const script = document.createElement('script');
+      script.async = true;
+      script.src = 'https://telegram.org/js/telegram-widget.js?22';
+      script.setAttribute('data-telegram-login', BOT_USERNAME);
+      script.setAttribute('data-size', 'large');
+      script.setAttribute('data-auth-url', `https://${DOMAIN}/`);
+      script.setAttribute('data-request-access', 'write');
+      widgetDiv.appendChild(script);
+    }
 
-      const userId = user.id;
-      const isAdmin = userId === 998579758;
+    // Основная логика игры
+    function initGameLogic() {
+      document.getElementById('gameContainer').style.display = '';
+      document.getElementById('authBlock').style.display = 'none';
 
       // ---------- СОСТОЯНИЕ ----------
       const defaultState = {
@@ -249,7 +299,7 @@
 
       function loadState() {
         try {
-          const saved = localStorage.getItem('minerGameV8');
+          const saved = localStorage.getItem('minerGameV9');
           if (saved) {
             const parsed = JSON.parse(saved);
             state = { ...defaultState, ...parsed };
@@ -263,15 +313,16 @@
         state.lastSaveTime = Date.now();
         if (state.playTimeStart) state.totalPlayTime += Date.now() - state.playTimeStart;
         state.playTimeStart = Date.now();
-        try { localStorage.setItem('minerGameV8', JSON.stringify(state)); } catch(e) {}
+        try { localStorage.setItem('minerGameV9', JSON.stringify(state)); } catch(e) {}
       }
 
       function register() {
         if (state.registered) return;
         state.registered = true;
         state.money += 50;
-        const urlParams = new URLSearchParams(window.location.search);
-        const refParam = urlParams.get('ref');
+        // проверка реферала (если открыто с параметром ref=...)
+        const params = new URLSearchParams(window.location.search);
+        const refParam = params.get('ref');
         if (refParam && !isNaN(refParam)) {
           const refId = parseInt(refParam);
           if (refId !== userId) {
@@ -538,7 +589,7 @@
 
         let h = `
           <div class="profile-field"><b>ID:</b> ${userId}</div>
-          <div class="profile-field"><b>Имя:</b> ${user.first_name}</div>
+          <div class="profile-field"><b>Имя:</b> ${user?.first_name || 'Игрок'}</div>
           <div class="profile-field"><b>Общее время в игре:</b> ${hours} ч ${minutes} мин</div>
           <div class="profile-field"><b>Реф-ссылка:</b> <a href="${refLink}" target="_blank">${refLink}</a></div>
           <button class="btn-sm" onclick="navigator.clipboard?.writeText('${refLink}')">📋 Копировать</button>
@@ -575,11 +626,16 @@
         c.innerHTML = h;
 
         document.getElementById('bindTgBtn')?.addEventListener('click', () => {
-          const link = `https://t.me/${BOT_USERNAME}?start=register`;
-          if (tg.openTelegramLink) {
-            tg.openTelegramLink(link);
+          // Если игра открыта в браузере – перенаправляем на страницу авторизации снова
+          if (!tg) {
+            // Очищаем localStorage, чтобы показать виджет снова
+            localStorage.removeItem('telegramUser');
+            location.reload();
           } else {
-            window.open(link, '_blank');
+            // В Mini App можно просто открыть ссылку для привязки в боте
+            const link = `https://t.me/${BOT_USERNAME}?start=register`;
+            if (tg.openTelegramLink) tg.openTelegramLink(link);
+            else window.open(link, '_blank');
           }
         });
 
@@ -605,7 +661,7 @@
           }
           renderUsers();
           if (!users.find(u => u.id === userId)) {
-            users.push({ id: userId, name: user.first_name, oil: state.oil, money: state.money });
+            users.push({ id: userId, name: user?.first_name || 'Admin', oil: state.oil, money: state.money });
             saveUsers();
           }
           document.getElementById('giveOilBtn')?.addEventListener('click', () => {
@@ -723,7 +779,20 @@
       window.addEventListener('beforeunload', saveState);
     }
 
-    setTimeout(initGame, 200);
+    // Если Mini App, инициализируем сразу (ждём готовности)
+    if (tg) {
+      tg.ready();
+      tg.expand();
+      // Небольшая задержка на всякий случай
+      setTimeout(() => {
+        if (tg.initDataUnsafe?.user) {
+          startGame(tg.initDataUnsafe.user.id, tg.initDataUnsafe.user);
+        } else {
+          // Иногда в Mini App данные могут быть недоступны — покажем сообщение
+          document.body.innerHTML = '<div style="color:white;text-align:center;padding:40px;">Ошибка получения данных Telegram. Откройте приложение через кнопку меню бота.</div>';
+        }
+      }, 300);
+    }
   })();
 </script>
 </body>
