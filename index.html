@@ -90,16 +90,10 @@
       border-radius: 16px; padding: 14px 18px;
       box-shadow: 0 8px 20px rgba(0,0,0,0.5);
     }
-    .resources {
-      display: flex; justify-content: space-between;
-    }
+    .resources { display: flex; justify-content: space-between; }
     .resource { display: flex; align-items: center; gap: 6px; font-weight: 600; }
-    .bonuses-panel {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.85em;
-    }
-    .actions {
-      display: flex; flex-direction: column; align-items: center; gap: 12px;
-    }
+    .bonuses-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size: 0.85em; }
+    .actions { display: flex; flex-direction: column; align-items: center; gap: 12px; }
     .mine-btn {
       width: 110px; height: 110px; border-radius: 50%;
       background: radial-gradient(circle at 30% 30%, var(--accent2), var(--accent));
@@ -186,7 +180,6 @@
 
 <script>
   (() => {
-    // Telegram
     const tg = window.Telegram?.WebApp;
     if (tg) { tg.ready(); tg.expand(); }
     const currentUser = tg?.initDataUnsafe?.user || { id: 0, first_name: 'Гость' };
@@ -214,7 +207,6 @@
     };
     let state = JSON.parse(JSON.stringify(defaultState));
 
-    // Базы шахтёров
     const minerBase = [
       { lvl:1, baseProd:0.1, baseCost:15 },
       { lvl:2, baseProd:0.25, baseCost:40 },
@@ -235,7 +227,7 @@
       return Math.floor(20 * Math.pow(1.6, state.pickaxeLevel - 1));
     }
 
-    // Загрузка
+    // Загрузка/сохранение
     function loadState() {
       try {
         const saved = localStorage.getItem('minerGameV5');
@@ -250,36 +242,28 @@
     }
     function saveState() {
       state.lastSaveTime = Date.now();
-      // сохраняем общее время игры
-      if (state.playTimeStart) {
-        state.totalPlayTime += Date.now() - state.playTimeStart;
-      }
+      if (state.playTimeStart) state.totalPlayTime += Date.now() - state.playTimeStart;
       state.playTimeStart = Date.now();
       try { localStorage.setItem('minerGameV5', JSON.stringify(state)); } catch(e) {}
     }
 
-    // Регистрация и рефералы
     function register() {
       if (state.registered) return;
       state.registered = true;
-      state.money += 50; // стартовый бонус
-      // проверяем реф-ссылку
+      state.money += 50;
       const urlParams = new URLSearchParams(window.location.search);
       const refParam = urlParams.get('ref');
       if (refParam && !isNaN(refParam)) {
         const refId = parseInt(refParam);
         if (refId !== userId) {
           state.invitedBy = refId;
-          state.money += 1000; // бонус новому
+          state.money += 1000;
           showPopup('🎁 Вы пришли по реф-ссылке! +1000💰');
-          // Попытаемся сохранить для пригласившего (в его localStorage это не попадёт)
-          // Вместо этого админ может начислить вручную.
         }
       }
       saveState();
     }
 
-    // Офлайн-прогресс
     function applyOfflineProgress() {
       const now = Date.now();
       const elapsedSec = (now - state.lastSaveTime) / 1000;
@@ -288,10 +272,7 @@
       let diamondsGain = 0, oilGain = 0;
       for (let i = 0; i < 7; i++) {
         const cnt = state.miners[i];
-        if (cnt > 0) {
-          const prod = minerBase[i].baseProd * state.globalMinerMult + state.flatMinerBonus;
-          diamondsGain += prod * cnt * effectiveSec;
-        }
+        if (cnt > 0) diamondsGain += (minerBase[i].baseProd * state.globalMinerMult + state.flatMinerBonus) * cnt * effectiveSec;
       }
       oilGain += state.oilMiner * OIL_MINER_PROD * effectiveSec + state.oilPerSecBonus * effectiveSec;
       if (diamondsGain > 0.5 || oilGain > 0.001) {
@@ -310,7 +291,6 @@
       setTimeout(() => div.remove(), 2500);
     }
 
-    // Игровые действия
     function doClick() {
       let gain = state.pickaxeLevel;
       if (state.boostActive && Date.now() < state.boostEnd) gain *= 2;
@@ -348,8 +328,7 @@
 
     function sellAll() {
       if (state.diamonds <= 0) return;
-      const moneyGain = Math.floor(state.diamonds * 0.05);
-      state.money += moneyGain;
+      state.money += Math.floor(state.diamonds * 0.05);
       state.diamonds = 0;
       updateUI(); saveState();
     }
@@ -424,7 +403,6 @@
       return state.dailyOilDate !== new Date().toISOString().split('T')[0];
     }
 
-    // Задания
     const quests = [
       { id:'clicks20', desc:'20 кликов', check:()=>state.totalClicks>=20, reward:1 },
       { id:'clicks100', desc:'100 кликов', check:()=>state.totalClicks>=100, reward:2 },
@@ -536,7 +514,9 @@
     }
 
     function renderProfile(c) {
-      const refLink = `https://t.me/${tg?.initDataUnsafe?.bot_username || 'your_bot'}?startapp=ref_${userId}`;
+      // Используйте юзернейм вашего бота
+      const BOT_USERNAME = 'YOUR_BOT_USERNAME'; // ← Замените на реальный!
+      const refLink = `https://t.me/${BOT_USERNAME}?startapp=ref_${userId}`;
       const totalPlayTime = state.totalPlayTime + (state.playTimeStart ? Date.now() - state.playTimeStart : 0);
       const hours = Math.floor(totalPlayTime / 3600000);
       const minutes = Math.floor((totalPlayTime % 3600000) / 60000);
@@ -548,11 +528,11 @@
         <div class="profile-field"><b>Реф-ссылка:</b> <a href="${refLink}" target="_blank">${refLink}</a></div>
         <button class="btn-sm" onclick="navigator.clipboard?.writeText('${refLink}')">📋 Копировать</button>
         <div style="margin-top:12px;">
+          <button class="btn-sm" id="bindTgBtn">📱 Привязать TG</button>
           <button class="btn-sm" id="withdrawBtn" ${state.oil<50?'disabled':''}>💸 Вывести нефть</button>
           <button class="btn-sm" id="depositBtn">💰 Пополнить нефть</button>
         </div>`;
 
-      // Админ-панель
       if (isAdmin) {
         h += `<div class="admin-panel"><h4>👑 Админ-панель</h4>
           <div><b>Управление пользователями (текущее устройство)</b></div>
@@ -562,7 +542,7 @@
           <button class="btn-sm" id="giveBoostBtn">Дать бустер x2 на 30м</button>
           <hr>
           <div><b>Ивенты</b></div>
-          <button class="btn-sm" id="eventX2">Включить x2 алмазы на 1ч (глобально)</button>
+          <button class="btn-sm" id="eventX2">Включить x2 алмазы на 1ч</button>
           <button class="btn-sm" id="eventX2off">Выключить ивент</button>
           <hr>
           <div><b>Рекламный баннер</b></div>
@@ -579,10 +559,19 @@
       }
       c.innerHTML = h;
 
-      // Обработчики
-      document.getElementById('withdrawBtn')?.addEventListener('click', (e) => {
+      // Кнопка "Привязать TG"
+      document.getElementById('bindTgBtn')?.addEventListener('click', () => {
+        const link = `https://t.me/${BOT_USERNAME}?start=register`;
+        if (tg?.openTelegramLink) {
+          tg.openTelegramLink(link);
+        } else {
+          window.open(link, '_blank');
+        }
+      });
+
+      // Вывод и пополнение
+      document.getElementById('withdrawBtn')?.addEventListener('click', () => {
         if (state.oil < 50) {
-          e.preventDefault();
           showPopup('Недостаточно нефти для вывода (мин. 50 🛢️)');
         } else {
           window.open(`https://t.me/nukm0?text=Вывести%20нефть%20${Math.floor(state.oil)}%20🛢️`, '_blank');
@@ -592,7 +581,7 @@
         window.open(`https://t.me/nukm0?text=Пополнить%20нефть`, '_blank');
       });
 
-      // Админские функции (только для демо, работа с localStorage)
+      // Админ-функции (как ранее)
       if (isAdmin) {
         const usersKey = 'minerUsers';
         let users = JSON.parse(localStorage.getItem(usersKey) || '[]');
@@ -603,13 +592,10 @@
           list.innerHTML = users.map((u,idx) => `<div><input type="radio" name="userSelect" value="${idx}"> ${u.name} (ID:${u.id}) 🛢️${u.oil.toFixed(1)}</div>`).join('');
         }
         renderUsers();
-
-        // Добавим текущего пользователя, если его нет
         if (!users.find(u => u.id === userId)) {
           users.push({ id: userId, name: currentUser.first_name, oil: state.oil, money: state.money });
           saveUsers();
         }
-
         document.getElementById('giveOilBtn')?.addEventListener('click', () => {
           const sel = document.querySelector('input[name="userSelect"]:checked');
           if (sel) {
@@ -629,18 +615,14 @@
           }
         });
         document.getElementById('giveBoostBtn')?.addEventListener('click', () => {
-          const sel = document.querySelector('input[name="userSelect"]:checked');
-          if (sel) {
-            // Не можем напрямую дать бустер другому пользователю (разные localStorage)
-            showPopup('Бустер можно выдать только на этом устройстве (текущему)');
-            state.boostActive = true;
-            state.boostEnd = Date.now() + 30*60*1000;
-            updateUI(); saveState();
-          }
+          state.boostActive = true;
+          state.boostEnd = Date.now() + 30*60*1000;
+          updateUI(); saveState();
+          showPopup('Бустер активирован на 30 минут (текущий пользователь)');
         });
         document.getElementById('eventX2')?.addEventListener('click', () => {
           state.globalMinerMult *= 2;
-          showPopup('Ивент: x2 добыча шахтёров на 1 час! (условно)');
+          showPopup('Ивент: x2 добыча шахтёров (условно)');
           updateUI(); saveState();
         });
         document.getElementById('eventX2off')?.addEventListener('click', () => {
@@ -687,7 +669,7 @@
         renderSubQuests();
       }
 
-      // Рекламный баннер (для всех)
+      // Рекламный баннер для всех
       const ad = JSON.parse(localStorage.getItem('adBanner') || 'null');
       if (ad && ad.text) {
         const bannerDiv = document.createElement('div');
@@ -716,8 +698,7 @@
       }
       let diamondsGain = 0;
       for (let i=0; i<7; i++) {
-        const cnt = state.miners[i];
-        if (cnt>0) diamondsGain += (minerBase[i].baseProd*state.globalMinerMult+state.flatMinerBonus)*cnt;
+        if (state.miners[i]>0) diamondsGain += (minerBase[i].baseProd*state.globalMinerMult+state.flatMinerBonus)*state.miners[i];
       }
       const oilGain = state.oilMiner*OIL_MINER_PROD + state.oilPerSecBonus;
       if (diamondsGain>0) { state.diamonds+=diamondsGain; state.totalDiamondsMined+=diamondsGain; }
