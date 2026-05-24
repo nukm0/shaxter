@@ -25,7 +25,6 @@
       overflow-x: hidden;
       position: relative;
     }
-    /* Анимированная шахта */
     .mine-bg {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       pointer-events: none; z-index: 0;
@@ -53,10 +52,7 @@
     }
     .cart:nth-child(2) { bottom: 18%; animation-duration: 12s; animation-delay: -3s; }
     .cart:nth-child(3) { bottom: 14%; animation-duration: 10s; animation-delay: -6s; }
-    @keyframes moveCart {
-      0% { left: -10%; }
-      100% { left: 110%; }
-    }
+    @keyframes moveCart { 0% { left: -10%; } 100% { left: 110%; } }
     .floating-diamond {
       position: absolute; width: 12px; height: 12px;
       background: radial-gradient(circle, #fff 20%, #a0e0ff 80%);
@@ -74,12 +70,12 @@
     }
     .lamp {
       position: absolute; top: 10%; left: 50%; transform: translateX(-50%);
-      width: 60px; height: 80px; background: radial-gradient(ellipse at center, rgba(255,200,100,0.3) 0%, transparent 70%);
+      width: 60px; height: 80px;
+      background: radial-gradient(ellipse at center, rgba(255,200,100,0.3) 0%, transparent 70%);
       border-radius: 50%;
       animation: flicker 3s infinite alternate;
     }
     @keyframes flicker { 0% { opacity: 0.5; } 100% { opacity: 0.9; } }
-
     .game {
       width: 100%; max-width: 420px; padding: 16px;
       display: flex; flex-direction: column; gap: 14px;
@@ -153,7 +149,7 @@
   <div class="floating-diamond"></div><div class="floating-diamond"></div><div class="floating-diamond"></div><div class="floating-diamond"></div>
   <div class="lamp"></div>
 </div>
-<div class="game">
+<div class="game" id="gameContainer">
   <div class="resources">
     <div class="resource">💎 <span id="diamondsDisplay">0</span></div>
     <div class="resource">💰 <span id="moneyDisplay">0</span></div>
@@ -180,550 +176,558 @@
 
 <script>
   (() => {
-    // Строгая проверка на Telegram WebApp
+    const BOT_USERNAME = '@minermine1_bot'; // ← замените на юзернейм вашего бота
+
+    function showMessage(msg) {
+      document.body.innerHTML = `<div style="color:white; text-align:center; padding:40px;">${msg}</div>`;
+    }
+
     const tg = window.Telegram?.WebApp;
     if (!tg) {
-      document.body.innerHTML = '<div style="color:white; text-align:center; padding:40px;">Ошибка: откройте мини-приложение через Telegram бота</div>';
+      showMessage('Ошибка: Telegram WebApp не обнаружен. Убедитесь, что вы открыли приложение внутри Telegram через кнопку меню бота.');
       return;
     }
+
     tg.ready();
     tg.expand();
 
-    const currentUser = tg.initDataUnsafe?.user;
-    if (!currentUser || !currentUser.id) {
-      document.body.innerHTML = '<div style="color:white; text-align:center; padding:40px;">Не удалось получить данные пользователя. Убедитесь, что вы открыли приложение через кнопку меню бота.</div>';
-      return;
-    }
-    const userId = currentUser.id;
-    const isAdmin = userId === 998579758;
+    function initGame() {
+      const user = tg.initDataUnsafe?.user;
+      if (!user || !user.id) {
+        document.body.innerHTML = `
+          <div style="color:white; text-align:center; padding:40px;">
+            <p>Не удалось получить данные пользователя.</p>
+            <p>Пожалуйста, откройте мини-приложение через <b>кнопку меню</b> бота (рядом с полем ввода).</p>
+            <p style="margin-top:20px;">Или перейдите по ссылке: <a href="https://t.me/${BOT_USERNAME}/app" style="color:#f7d794;">https://t.me/${BOT_USERNAME}/app</a></p>
+          </div>`;
+        return;
+      }
 
-    // Игровое состояние
-    const defaultState = {
-      diamonds: 0, money: 0, oil: 0,
-      pickaxeLevel: 1,
-      miners: [0,0,0,0,0,0,0],
-      oilMiner: 0,
-      globalMinerMult: 1.0, flatMinerBonus: 0,
-      oilPerSecBonus: 0, critChance: 0,
-      boostActive: false, boostEnd: 0,
-      dailyOilDate: null,
-      completedQuests: [],
-      totalClicks: 0, totalDiamondsMined: 0,
-      totalMinersHired: 0, totalUpgrades: 0,
-      lastSaveTime: Date.now(),
-      registered: false,
-      invitedBy: null,
-      playTimeStart: Date.now(),
-      totalPlayTime: 0
-    };
-    let state = JSON.parse(JSON.stringify(defaultState));
+      const userId = user.id;
+      const isAdmin = userId === 998579758;
 
-    const minerBase = [
-      { lvl:1, baseProd:0.1, baseCost:15 },
-      { lvl:2, baseProd:0.25, baseCost:40 },
-      { lvl:3, baseProd:0.5, baseCost:100 },
-      { lvl:4, baseProd:1.0, baseCost:250 },
-      { lvl:5, baseProd:2.0, baseCost:600 },
-      { lvl:6, baseProd:4.0, baseCost:1500 },
-      { lvl:7, baseProd:8.0, baseCost:4000 }
-    ];
-    const OIL_MINER_COST = 200;
-    const OIL_MINER_PROD = 0.05;
+      // ---------- СОСТОЯНИЕ ----------
+      const defaultState = {
+        diamonds: 0, money: 0, oil: 0,
+        pickaxeLevel: 1,
+        miners: [0,0,0,0,0,0,0],
+        oilMiner: 0,
+        globalMinerMult: 1.0, flatMinerBonus: 0,
+        oilPerSecBonus: 0, critChance: 0,
+        boostActive: false, boostEnd: 0,
+        dailyOilDate: null,
+        completedQuests: [],
+        totalClicks: 0, totalDiamondsMined: 0,
+        totalMinersHired: 0, totalUpgrades: 0,
+        lastSaveTime: Date.now(),
+        registered: false,
+        invitedBy: null,
+        playTimeStart: Date.now(),
+        totalPlayTime: 0
+      };
+      let state = JSON.parse(JSON.stringify(defaultState));
 
-    function getMinerCost(idx) {
-      const cnt = state.miners[idx];
-      return Math.floor(minerBase[idx].baseCost * (1 + 0.35 * cnt));
-    }
-    function getPickaxeCost() {
-      return Math.floor(20 * Math.pow(1.6, state.pickaxeLevel - 1));
-    }
+      const minerBase = [
+        { lvl:1, baseProd:0.1, baseCost:15 },
+        { lvl:2, baseProd:0.25, baseCost:40 },
+        { lvl:3, baseProd:0.5, baseCost:100 },
+        { lvl:4, baseProd:1.0, baseCost:250 },
+        { lvl:5, baseProd:2.0, baseCost:600 },
+        { lvl:6, baseProd:4.0, baseCost:1500 },
+        { lvl:7, baseProd:8.0, baseCost:4000 }
+      ];
+      const OIL_MINER_COST = 200;
+      const OIL_MINER_PROD = 0.05;
 
-    // Загрузка/сохранение
-    function loadState() {
-      try {
-        const saved = localStorage.getItem('minerGameV6');
-        if (saved) {
-          const parsed = JSON.parse(saved);
-          state = { ...defaultState, ...parsed };
-          if (!Array.isArray(state.miners) || state.miners.length !== 7) state.miners = [0,0,0,0,0,0,0];
-          if (!Array.isArray(state.completedQuests)) state.completedQuests = [];
-          if (state.boostEnd && state.boostEnd < Date.now()) { state.boostActive = false; state.boostEnd = 0; }
+      function getMinerCost(idx) {
+        const cnt = state.miners[idx];
+        return Math.floor(minerBase[idx].baseCost * (1 + 0.35 * cnt));
+      }
+      function getPickaxeCost() {
+        return Math.floor(20 * Math.pow(1.6, state.pickaxeLevel - 1));
+      }
+
+      // Загрузка/сохранение
+      function loadState() {
+        try {
+          const saved = localStorage.getItem('minerGameV7');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            state = { ...defaultState, ...parsed };
+            if (!Array.isArray(state.miners) || state.miners.length !== 7) state.miners = [0,0,0,0,0,0,0];
+            if (!Array.isArray(state.completedQuests)) state.completedQuests = [];
+            if (state.boostEnd && state.boostEnd < Date.now()) { state.boostActive = false; state.boostEnd = 0; }
+          }
+        } catch(e) {}
+      }
+      function saveState() {
+        state.lastSaveTime = Date.now();
+        if (state.playTimeStart) state.totalPlayTime += Date.now() - state.playTimeStart;
+        state.playTimeStart = Date.now();
+        try { localStorage.setItem('minerGameV7', JSON.stringify(state)); } catch(e) {}
+      }
+
+      function register() {
+        if (state.registered) return;
+        state.registered = true;
+        state.money += 50;
+        const urlParams = new URLSearchParams(window.location.search);
+        const refParam = urlParams.get('ref');
+        if (refParam && !isNaN(refParam)) {
+          const refId = parseInt(refParam);
+          if (refId !== userId) {
+            state.invitedBy = refId;
+            state.money += 1000;
+            showPopup('🎁 Вы пришли по реф-ссылке! +1000💰');
+          }
         }
-      } catch(e) {}
-    }
-    function saveState() {
-      state.lastSaveTime = Date.now();
-      if (state.playTimeStart) state.totalPlayTime += Date.now() - state.playTimeStart;
-      state.playTimeStart = Date.now();
-      try { localStorage.setItem('minerGameV6', JSON.stringify(state)); } catch(e) {}
-    }
+        saveState();
+      }
 
-    function register() {
-      if (state.registered) return;
-      state.registered = true;
-      state.money += 50;
-      const urlParams = new URLSearchParams(window.location.search);
-      const refParam = urlParams.get('ref');
-      if (refParam && !isNaN(refParam)) {
-        const refId = parseInt(refParam);
-        if (refId !== userId) {
-          state.invitedBy = refId;
-          state.money += 1000;
-          showPopup('🎁 Вы пришли по реф-ссылке! +1000💰');
+      function applyOfflineProgress() {
+        const now = Date.now();
+        const elapsedSec = (now - state.lastSaveTime) / 1000;
+        if (elapsedSec < 5) return;
+        const effectiveSec = Math.min(elapsedSec, 8 * 3600);
+        let diamondsGain = 0, oilGain = 0;
+        for (let i = 0; i < 7; i++) {
+          const cnt = state.miners[i];
+          if (cnt > 0) diamondsGain += (minerBase[i].baseProd * state.globalMinerMult + state.flatMinerBonus) * cnt * effectiveSec;
+        }
+        oilGain += state.oilMiner * OIL_MINER_PROD * effectiveSec + state.oilPerSecBonus * effectiveSec;
+        if (diamondsGain > 0.5 || oilGain > 0.001) {
+          state.diamonds += diamondsGain;
+          state.totalDiamondsMined += diamondsGain;
+          state.oil += oilGain;
+          showPopup(`⏳ Пока вас не было:\n💎 +${Math.floor(diamondsGain)}\n🛢️ +${oilGain.toFixed(2)}`);
         }
       }
-      saveState();
-    }
 
-    function applyOfflineProgress() {
-      const now = Date.now();
-      const elapsedSec = (now - state.lastSaveTime) / 1000;
-      if (elapsedSec < 5) return;
-      const effectiveSec = Math.min(elapsedSec, 8 * 3600);
-      let diamondsGain = 0, oilGain = 0;
-      for (let i = 0; i < 7; i++) {
-        const cnt = state.miners[i];
-        if (cnt > 0) diamondsGain += (minerBase[i].baseProd * state.globalMinerMult + state.flatMinerBonus) * cnt * effectiveSec;
+      function showPopup(text) {
+        const div = document.createElement('div');
+        div.className = 'loot-popup';
+        div.textContent = text;
+        document.body.appendChild(div);
+        setTimeout(() => div.remove(), 2500);
       }
-      oilGain += state.oilMiner * OIL_MINER_PROD * effectiveSec + state.oilPerSecBonus * effectiveSec;
-      if (diamondsGain > 0.5 || oilGain > 0.001) {
-        state.diamonds += diamondsGain;
-        state.totalDiamondsMined += diamondsGain;
-        state.oil += oilGain;
-        showPopup(`⏳ Пока вас не было:\n💎 +${Math.floor(diamondsGain)}\n🛢️ +${oilGain.toFixed(2)}`);
-      }
-    }
 
-    function showPopup(text) {
-      const div = document.createElement('div');
-      div.className = 'loot-popup';
-      div.textContent = text;
-      document.body.appendChild(div);
-      setTimeout(() => div.remove(), 2500);
-    }
-
-    function doClick() {
-      let gain = state.pickaxeLevel;
-      if (state.boostActive && Date.now() < state.boostEnd) gain *= 2;
-      if (state.critChance > 0 && Math.random() < state.critChance) {
-        gain *= 2; showPopup('💥 Критический удар! x2');
-      }
-      state.diamonds += gain;
-      state.totalDiamondsMined += gain;
-      state.totalClicks++;
-      updateUI(); saveState(); checkQuests();
-    }
-
-    // Удержание кнопки
-    let holdInterval = null;
-    const mineBtn = document.getElementById('mineButton');
-    function startHold(e) {
-      e.preventDefault();
-      if (holdInterval) return;
-      mineBtn.classList.add('pressed');
-      holdInterval = setInterval(doClick, 100);
-    }
-    function stopHold() {
-      if (holdInterval) {
-        clearInterval(holdInterval);
-        holdInterval = null;
-        mineBtn.classList.remove('pressed');
-      }
-    }
-    mineBtn.addEventListener('mousedown', startHold);
-    mineBtn.addEventListener('touchstart', startHold, {passive: false});
-    mineBtn.addEventListener('mouseup', stopHold);
-    mineBtn.addEventListener('mouseleave', stopHold);
-    mineBtn.addEventListener('touchend', stopHold);
-    mineBtn.addEventListener('touchcancel', stopHold);
-
-    function sellAll() {
-      if (state.diamonds <= 0) return;
-      state.money += Math.floor(state.diamonds * 0.05);
-      state.diamonds = 0;
-      updateUI(); saveState();
-    }
-    function buyPickaxe() {
-      const cost = getPickaxeCost();
-      if (state.money >= cost) {
-        state.money -= cost; state.pickaxeLevel++; state.totalUpgrades++;
+      function doClick() {
+        let gain = state.pickaxeLevel;
+        if (state.boostActive && Date.now() < state.boostEnd) gain *= 2;
+        if (state.critChance > 0 && Math.random() < state.critChance) {
+          gain *= 2; showPopup('💥 Критический удар! x2');
+        }
+        state.diamonds += gain;
+        state.totalDiamondsMined += gain;
+        state.totalClicks++;
         updateUI(); saveState(); checkQuests();
       }
-    }
-    function hireMiner(idx) {
-      const cost = getMinerCost(idx);
-      if (state.money >= cost) {
-        state.money -= cost; state.miners[idx]++; state.totalMinersHired++;
-        updateUI(); saveState(); checkQuests();
+
+      // Удержание кнопки
+      let holdInterval = null;
+      const mineBtn = document.getElementById('mineButton');
+      function startHold(e) {
+        e.preventDefault();
+        if (holdInterval) return;
+        mineBtn.classList.add('pressed');
+        holdInterval = setInterval(doClick, 100);
       }
-    }
-    function hireOilMiner() {
-      if (state.oil >= OIL_MINER_COST) {
-        state.oil -= OIL_MINER_COST; state.oilMiner++; state.totalMinersHired++;
-        updateUI(); saveState(); checkQuests();
-      }
-    }
-    function openBox100() {
-      if (state.money < 100) return;
-      state.money -= 100; state.totalUpgrades++;
-      const r = Math.random();
-      let text = '';
-      if (r < 0.5) { const amt = 5+Math.floor(Math.random()*6); state.diamonds+=amt; text=`💎 +${amt}`; }
-      else if (r < 0.8) { state.money+=20; text='💰 +20'; }
-      else if (r < 0.95) { state.oil+=0.2; text='🛢️ +0.2'; }
-      else { state.critChance = Math.min(0.5, state.critChance+0.02); text='💥 +2% крит'; }
-      showPopup('📦 Простой бокс: '+text); updateUI(); saveState(); checkQuests();
-    }
-    function openBox1000() {
-      if (state.money < 1000) return;
-      state.money -= 1000; state.totalUpgrades++;
-      const r = Math.random();
-      let text = '';
-      if (r < 0.25) { const o = 0.1+Math.random()*0.4; state.oil+=o; text=`🛢️ +${o.toFixed(2)}`; }
-      else if (r < 0.50) { const a=30+Math.floor(Math.random()*21); state.diamonds+=a; text=`💎 +${a}`; }
-      else if (r < 0.70) { state.money+=150; text='💰 +150'; }
-      else if (r < 0.85) { state.pickaxeLevel++; text='⛏️ +1 ур. кирки'; }
-      else if (r < 0.95) { state.critChance = Math.min(0.5, state.critChance+0.04); text='💥 +4% крит'; }
-      else if (r < 0.99) { state.globalMinerMult+=0.03; text='⚙️ +3% добычи'; }
-      else { state.flatMinerBonus+=0.5; text='📈 +0.5 бонус'; }
-      showPopup('📦 Средний бокс: '+text); updateUI(); saveState(); checkQuests();
-    }
-    function openPremiumBox() {
-      if (state.oil < 10) return;
-      state.oil -= 10; state.totalUpgrades++;
-      const r = Math.random();
-      let text = '';
-      if (r < 0.30) {
-        state.boostActive = true; state.boostEnd = Date.now() + 5*60*1000;
-        text = '🔥 Бустер x2 на 5 мин!';
-      } else if (r < 0.60) { state.diamonds+=100; text='💎 +100'; }
-      else if (r < 0.80) { state.money+=300; text='💰 +300'; }
-      else if (r < 0.90) { state.pickaxeLevel+=2; text='⛏️ +2 ур. кирки'; }
-      else if (r < 0.96) { state.oil+=15; text='🛢️ +15'; }
-      else if (r < 0.99) { state.oilMiner++; text='🛢️👷 Нефтяной шахтёр!'; }
-      else { state.critChance = Math.min(0.5, state.critChance+0.1); text='💥 +10% крит'; }
-      showPopup('✨ Премиум бокс: '+text); updateUI(); saveState(); checkQuests();
-    }
-    function claimDailyOil() {
-      const today = new Date().toISOString().split('T')[0];
-      if (state.dailyOilDate === today) return;
-      state.dailyOilDate = today; state.oil += 2;
-      updateUI(); saveState(); showPopup('🎁 Ежедневный бонус: +2 🛢️');
-    }
-    function canClaimDaily() {
-      return state.dailyOilDate !== new Date().toISOString().split('T')[0];
-    }
-
-    const quests = [
-      { id:'clicks20', desc:'20 кликов', check:()=>state.totalClicks>=20, reward:1 },
-      { id:'clicks100', desc:'100 кликов', check:()=>state.totalClicks>=100, reward:2 },
-      { id:'diamonds200', desc:'Добыть 200 💎', check:()=>state.totalDiamondsMined>=200, reward:1 },
-      { id:'diamonds1000', desc:'Добыть 1000 💎', check:()=>state.totalDiamondsMined>=1000, reward:2 },
-      { id:'diamonds5000', desc:'Добыть 5000 💎', check:()=>state.totalDiamondsMined>=5000, reward:3 },
-      { id:'hire3', desc:'Нанять 3 шахтёров', check:()=>state.totalMinersHired>=3, reward:1 },
-      { id:'hire10', desc:'Нанять 10 шахтёров', check:()=>state.totalMinersHired>=10, reward:2 },
-      { id:'hire25', desc:'Нанять 25 шахтёров', check:()=>state.totalMinersHired>=25, reward:3 },
-      { id:'pickaxe5', desc:'Кирка 5 ур.', check:()=>state.pickaxeLevel>=5, reward:1 },
-      { id:'pickaxe10', desc:'Кирка 10 ур.', check:()=>state.pickaxeLevel>=10, reward:2 },
-      { id:'oilminer1', desc:'Нефтяной шахтёр', check:()=>state.oilMiner>=1, reward:5 },
-      { id:'oilminer3', desc:'3 нефтяных шахтёра', check:()=>state.oilMiner>=3, reward:10 },
-      { id:'upgrade5', desc:'5 улучшений', check:()=>state.totalUpgrades>=5, reward:1 },
-      { id:'upgrade15', desc:'15 улучшений', check:()=>state.totalUpgrades>=15, reward:3 }
-    ];
-    function checkQuests() {}
-    function claimQuest(id) {
-      const q = quests.find(q=>q.id===id);
-      if (!q || state.completedQuests.includes(id)) return;
-      if (q.check()) {
-        state.completedQuests.push(id); state.oil += q.reward;
-        showPopup(`📋 Задание: +${q.reward} 🛢️`); updateUI(); saveState();
-      }
-    }
-
-    // UI
-    let currentTab = 'miners';
-    function updateUI() {
-      document.getElementById('diamondsDisplay').textContent = Math.floor(state.diamonds);
-      document.getElementById('moneyDisplay').textContent = Math.floor(state.money);
-      document.getElementById('oilDisplay').textContent = Math.floor(state.oil*100)/100;
-      const clickMul = (state.boostActive && Date.now()<state.boostEnd) ? 2 : 1;
-      document.getElementById('clickValue').textContent = state.pickaxeLevel * clickMul;
-
-      document.getElementById('bonusesPanel').innerHTML = `
-        <div class="bonus-item">⚙️ Множ: <span>${state.globalMinerMult.toFixed(2)}</span></div>
-        <div class="bonus-item">📈 Бонус: <span>+${state.flatMinerBonus.toFixed(2)}</span></div>
-        <div class="bonus-item">🛢️ Пасс: <span>${(state.oilMiner*OIL_MINER_PROD+state.oilPerSecBonus).toFixed(2)}/с</span></div>
-        <div class="bonus-item">💥 Крит: <span>${Math.floor(state.critChance*100)}%</span></div>
-        <div class="bonus-item">🔥 Бустер: <span>${(state.boostActive && Date.now()<state.boostEnd) ? Math.ceil((state.boostEnd-Date.now())/60000)+'м' : 'нет'}</span></div>
-      `;
-
-      let totalDiamondsPerSec = 0;
-      for (let i=0; i<7; i++) {
-        if (state.miners[i]>0) totalDiamondsPerSec += (minerBase[i].baseProd*state.globalMinerMult+state.flatMinerBonus)*state.miners[i];
-      }
-      const totalOilPerSec = state.oilMiner*OIL_MINER_PROD + state.oilPerSecBonus;
-      document.getElementById('autoInfo').innerHTML = `⛏️ ${totalDiamondsPerSec.toFixed(2)} 💎/с | 🛢️ ${totalOilPerSec.toFixed(3)}/с`;
-      renderTab();
-    }
-
-    function renderTab() {
-      const c = document.getElementById('tabContent');
-      c.innerHTML = '';
-      if (currentTab==='miners') renderMiners(c);
-      else if (currentTab==='shop') renderShop(c);
-      else if (currentTab==='quests') renderQuests(c);
-      else if (currentTab==='profile') renderProfile(c);
-    }
-
-    function renderMiners(c) {
-      let h = '';
-      for (let i=0; i<7; i++) {
-        const m=minerBase[i]; const cnt=state.miners[i];
-        const prod=m.baseProd*state.globalMinerMult+state.flatMinerBonus;
-        const cost=getMinerCost(i);
-        h+=`<div class="miner-row"><div><div>👷 Шахтёр ур.${m.lvl} (${cnt} шт.)</div><div class="prod">+${prod.toFixed(2)} 💎/с</div></div>
-        <button class="btn-sm hire-miner" data-idx="${i}" ${state.money<cost?'disabled':''}>💰 ${cost}</button></div>`;
-      }
-      h+=`<div class="miner-row"><div><div>🛢️ Нефтяной шахтёр (${state.oilMiner} шт.)</div><div class="prod">+${OIL_MINER_PROD} 🛢️/с</div></div>
-      <button class="btn-sm" id="hireOilMiner" ${state.oil<OIL_MINER_COST?'disabled':''}>🛢️ ${OIL_MINER_COST}</button></div>`;
-      c.innerHTML=h;
-      c.querySelectorAll('.hire-miner').forEach(b=>b.addEventListener('click', ()=>hireMiner(parseInt(b.dataset.idx))));
-      document.getElementById('hireOilMiner')?.addEventListener('click', hireOilMiner);
-    }
-
-    function renderShop(c) {
-      const pc=getPickaxeCost();
-      c.innerHTML=`
-        <div class="shop-item"><div><div>⛏️ Улучшить кирку (ур.${state.pickaxeLevel})</div><div class="prod">+${state.pickaxeLevel+1} за клик</div></div>
-        <button class="btn-sm" id="buyPickaxe" ${state.money<pc?'disabled':''}>💰 ${pc}</button></div>
-        <div class="shop-item"><div><div>📦 Простой бокс (100💰)</div><div class="prod">Малые награды</div></div>
-        <button class="btn-sm" id="box100" ${state.money<100?'disabled':''}>💰 100</button></div>
-        <div class="shop-item"><div><div>📦 Средний бокс (1000💰)</div><div class="prod">Шанс на нефть</div></div>
-        <button class="btn-sm" id="box1000" ${state.money<1000?'disabled':''}>💰 1000</button></div>
-        <div class="shop-item"><div><div>✨ Премиум бокс (10🛢️)</div><div class="prod">Разовые бонусы</div></div>
-        <button class="btn-sm" id="premiumBox" ${state.oil<10?'disabled':''}>🛢️ 10</button></div>
-        <div style="margin-top:10px;font-size:0.8em;opacity:0.6;text-align:center;">1💎 = 0.05💰</div>`;
-      document.getElementById('buyPickaxe')?.addEventListener('click', buyPickaxe);
-      document.getElementById('box100')?.addEventListener('click', openBox100);
-      document.getElementById('box1000')?.addEventListener('click', openBox1000);
-      document.getElementById('premiumBox')?.addEventListener('click', openPremiumBox);
-    }
-
-    function renderQuests(c) {
-      let h=`<div class="shop-item"><div><div>🎁 Ежедневная нефть</div><div class="prod">${canClaimDaily()?'+2 🛢️':'Уже получено'}</div></div>
-        <button class="btn-sm" id="dailyOilBtn" ${!canClaimDaily()?'disabled':''}>Забрать</button></div>
-        <div style="margin-top:12px;font-weight:600;">📋 Задания</div>`;
-      quests.forEach(q=>{
-        const done=state.completedQuests.includes(q.id);
-        const can=!done && q.check();
-        h+=`<div class="quest-item"><div><div>${q.desc}</div><div class="prod">🛢️ ${q.reward}</div></div>
-          <button class="btn-sm claim-q" data-id="${q.id}" ${!can?'disabled':''}>${done?'✓':'Взять'}</button></div>`;
-      });
-      c.innerHTML=h;
-      document.getElementById('dailyOilBtn')?.addEventListener('click', claimDailyOil);
-      c.querySelectorAll('.claim-q').forEach(b=>b.addEventListener('click', ()=>claimQuest(b.dataset.id)));
-    }
-
-    function renderProfile(c) {
-      // Замените на юзернейм вашего бота
-      const BOT_USERNAME = 'YOUR_BOT_USERNAME';
-      const refLink = `https://t.me/${BOT_USERNAME}?startapp=ref_${userId}`;
-      const totalPlayTime = state.totalPlayTime + (state.playTimeStart ? Date.now() - state.playTimeStart : 0);
-      const hours = Math.floor(totalPlayTime / 3600000);
-      const minutes = Math.floor((totalPlayTime % 3600000) / 60000);
-
-      let h = `
-        <div class="profile-field"><b>ID:</b> ${userId}</div>
-        <div class="profile-field"><b>Имя:</b> ${currentUser.first_name}</div>
-        <div class="profile-field"><b>Общее время в игре:</b> ${hours} ч ${minutes} мин</div>
-        <div class="profile-field"><b>Реф-ссылка:</b> <a href="${refLink}" target="_blank">${refLink}</a></div>
-        <button class="btn-sm" onclick="navigator.clipboard?.writeText('${refLink}')">📋 Копировать</button>
-        <div style="margin-top:12px;">
-          <button class="btn-sm" id="bindTgBtn">📱 Привязать TG</button>
-          <button class="btn-sm" id="withdrawBtn" ${state.oil<50?'disabled':''}>💸 Вывести нефть</button>
-          <button class="btn-sm" id="depositBtn">💰 Пополнить нефть</button>
-        </div>`;
-
-      if (isAdmin) {
-        h += `<div class="admin-panel"><h4>👑 Админ-панель</h4>
-          <div><b>Управление пользователями (текущее устройство)</b></div>
-          <div id="usersList"></div>
-          <button class="btn-sm" id="giveOilBtn">Выдать 50🛢️ выбранному</button>
-          <button class="btn-sm" id="removeOilBtn">Снять 50🛢️</button>
-          <button class="btn-sm" id="giveBoostBtn">Дать бустер x2 на 30м</button>
-          <hr>
-          <div><b>Ивенты</b></div>
-          <button class="btn-sm" id="eventX2">Включить x2 алмазы на 1ч</button>
-          <button class="btn-sm" id="eventX2off">Выключить ивент</button>
-          <hr>
-          <div><b>Рекламный баннер</b></div>
-          <input id="bannerText" placeholder="Текст баннера" style="width:100%; margin:4px 0;">
-          <input id="bannerLink" placeholder="Ссылка" style="width:100%; margin:4px 0;">
-          <button class="btn-sm" id="saveBanner">Сохранить баннер</button>
-          <hr>
-          <div><b>Задания за подписку</b></div>
-          <input id="subLink" placeholder="Ссылка на канал" style="width:100%; margin:4px 0;">
-          <input id="subReward" placeholder="Награда (нефть)" style="width:100%; margin:4px 0;">
-          <button class="btn-sm" id="addSubQuest">Добавить задание</button>
-          <div id="subQuestsList"></div>
-        </div>`;
-      }
-      c.innerHTML = h;
-
-      // Кнопка "Привязать TG"
-      document.getElementById('bindTgBtn')?.addEventListener('click', () => {
-        const link = `https://t.me/${BOT_USERNAME}?start=register`;
-        if (tg.openTelegramLink) {
-          tg.openTelegramLink(link);
-        } else {
-          window.open(link, '_blank');
+      function stopHold() {
+        if (holdInterval) {
+          clearInterval(holdInterval);
+          holdInterval = null;
+          mineBtn.classList.remove('pressed');
         }
-      });
+      }
+      mineBtn.addEventListener('mousedown', startHold);
+      mineBtn.addEventListener('touchstart', startHold, {passive: false});
+      mineBtn.addEventListener('mouseup', stopHold);
+      mineBtn.addEventListener('mouseleave', stopHold);
+      mineBtn.addEventListener('touchend', stopHold);
+      mineBtn.addEventListener('touchcancel', stopHold);
 
-      // Вывод и пополнение
-      document.getElementById('withdrawBtn')?.addEventListener('click', () => {
-        if (state.oil < 50) {
-          showPopup('Недостаточно нефти для вывода (мин. 50 🛢️)');
-        } else {
-          window.open(`https://t.me/nukm0?text=Вывести%20нефть%20${Math.floor(state.oil)}%20🛢️`, '_blank');
+      function sellAll() {
+        if (state.diamonds <= 0) return;
+        state.money += Math.floor(state.diamonds * 0.05);
+        state.diamonds = 0;
+        updateUI(); saveState();
+      }
+      function buyPickaxe() {
+        const cost = getPickaxeCost();
+        if (state.money >= cost) {
+          state.money -= cost; state.pickaxeLevel++; state.totalUpgrades++;
+          updateUI(); saveState(); checkQuests();
         }
-      });
-      document.getElementById('depositBtn')?.addEventListener('click', () => {
-        window.open(`https://t.me/nukm0?text=Пополнить%20нефть`, '_blank');
-      });
+      }
+      function hireMiner(idx) {
+        const cost = getMinerCost(idx);
+        if (state.money >= cost) {
+          state.money -= cost; state.miners[idx]++; state.totalMinersHired++;
+          updateUI(); saveState(); checkQuests();
+        }
+      }
+      function hireOilMiner() {
+        if (state.oil >= OIL_MINER_COST) {
+          state.oil -= OIL_MINER_COST; state.oilMiner++; state.totalMinersHired++;
+          updateUI(); saveState(); checkQuests();
+        }
+      }
+      function openBox100() {
+        if (state.money < 100) return;
+        state.money -= 100; state.totalUpgrades++;
+        const r = Math.random();
+        let text = '';
+        if (r < 0.5) { const amt = 5+Math.floor(Math.random()*6); state.diamonds+=amt; text=`💎 +${amt}`; }
+        else if (r < 0.8) { state.money+=20; text='💰 +20'; }
+        else if (r < 0.95) { state.oil+=0.2; text='🛢️ +0.2'; }
+        else { state.critChance = Math.min(0.5, state.critChance+0.02); text='💥 +2% крит'; }
+        showPopup('📦 Простой бокс: '+text); updateUI(); saveState(); checkQuests();
+      }
+      function openBox1000() {
+        if (state.money < 1000) return;
+        state.money -= 1000; state.totalUpgrades++;
+        const r = Math.random();
+        let text = '';
+        if (r < 0.25) { const o = 0.1+Math.random()*0.4; state.oil+=o; text=`🛢️ +${o.toFixed(2)}`; }
+        else if (r < 0.50) { const a=30+Math.floor(Math.random()*21); state.diamonds+=a; text=`💎 +${a}`; }
+        else if (r < 0.70) { state.money+=150; text='💰 +150'; }
+        else if (r < 0.85) { state.pickaxeLevel++; text='⛏️ +1 ур. кирки'; }
+        else if (r < 0.95) { state.critChance = Math.min(0.5, state.critChance+0.04); text='💥 +4% крит'; }
+        else if (r < 0.99) { state.globalMinerMult+=0.03; text='⚙️ +3% добычи'; }
+        else { state.flatMinerBonus+=0.5; text='📈 +0.5 бонус'; }
+        showPopup('📦 Средний бокс: '+text); updateUI(); saveState(); checkQuests();
+      }
+      function openPremiumBox() {
+        if (state.oil < 10) return;
+        state.oil -= 10; state.totalUpgrades++;
+        const r = Math.random();
+        let text = '';
+        if (r < 0.30) {
+          state.boostActive = true; state.boostEnd = Date.now() + 5*60*1000;
+          text = '🔥 Бустер x2 на 5 мин!';
+        } else if (r < 0.60) { state.diamonds+=100; text='💎 +100'; }
+        else if (r < 0.80) { state.money+=300; text='💰 +300'; }
+        else if (r < 0.90) { state.pickaxeLevel+=2; text='⛏️ +2 ур. кирки'; }
+        else if (r < 0.96) { state.oil+=15; text='🛢️ +15'; }
+        else if (r < 0.99) { state.oilMiner++; text='🛢️👷 Нефтяной шахтёр!'; }
+        else { state.critChance = Math.min(0.5, state.critChance+0.1); text='💥 +10% крит'; }
+        showPopup('✨ Премиум бокс: '+text); updateUI(); saveState(); checkQuests();
+      }
+      function claimDailyOil() {
+        const today = new Date().toISOString().split('T')[0];
+        if (state.dailyOilDate === today) return;
+        state.dailyOilDate = today; state.oil += 2;
+        updateUI(); saveState(); showPopup('🎁 Ежедневный бонус: +2 🛢️');
+      }
+      function canClaimDaily() {
+        return state.dailyOilDate !== new Date().toISOString().split('T')[0];
+      }
 
-      // Админ-функции
-      if (isAdmin) {
-        const usersKey = 'minerUsers';
-        let users = JSON.parse(localStorage.getItem(usersKey) || '[]');
-        function saveUsers() { localStorage.setItem(usersKey, JSON.stringify(users)); }
-        function renderUsers() {
-          const list = document.getElementById('usersList');
-          if (!list) return;
-          list.innerHTML = users.map((u,idx) => `<div><input type="radio" name="userSelect" value="${idx}"> ${u.name} (ID:${u.id}) 🛢️${u.oil.toFixed(1)}</div>`).join('');
+      const quests = [
+        { id:'clicks20', desc:'20 кликов', check:()=>state.totalClicks>=20, reward:1 },
+        { id:'clicks100', desc:'100 кликов', check:()=>state.totalClicks>=100, reward:2 },
+        { id:'diamonds200', desc:'Добыть 200 💎', check:()=>state.totalDiamondsMined>=200, reward:1 },
+        { id:'diamonds1000', desc:'Добыть 1000 💎', check:()=>state.totalDiamondsMined>=1000, reward:2 },
+        { id:'diamonds5000', desc:'Добыть 5000 💎', check:()=>state.totalDiamondsMined>=5000, reward:3 },
+        { id:'hire3', desc:'Нанять 3 шахтёров', check:()=>state.totalMinersHired>=3, reward:1 },
+        { id:'hire10', desc:'Нанять 10 шахтёров', check:()=>state.totalMinersHired>=10, reward:2 },
+        { id:'hire25', desc:'Нанять 25 шахтёров', check:()=>state.totalMinersHired>=25, reward:3 },
+        { id:'pickaxe5', desc:'Кирка 5 ур.', check:()=>state.pickaxeLevel>=5, reward:1 },
+        { id:'pickaxe10', desc:'Кирка 10 ур.', check:()=>state.pickaxeLevel>=10, reward:2 },
+        { id:'oilminer1', desc:'Нефтяной шахтёр', check:()=>state.oilMiner>=1, reward:5 },
+        { id:'oilminer3', desc:'3 нефтяных шахтёра', check:()=>state.oilMiner>=3, reward:10 },
+        { id:'upgrade5', desc:'5 улучшений', check:()=>state.totalUpgrades>=5, reward:1 },
+        { id:'upgrade15', desc:'15 улучшений', check:()=>state.totalUpgrades>=15, reward:3 }
+      ];
+      function checkQuests() {}
+      function claimQuest(id) {
+        const q = quests.find(q=>q.id===id);
+        if (!q || state.completedQuests.includes(id)) return;
+        if (q.check()) {
+          state.completedQuests.push(id); state.oil += q.reward;
+          showPopup(`📋 Задание: +${q.reward} 🛢️`); updateUI(); saveState();
         }
-        renderUsers();
-        if (!users.find(u => u.id === userId)) {
-          users.push({ id: userId, name: currentUser.first_name, oil: state.oil, money: state.money });
-          saveUsers();
+      }
+
+      // UI
+      let currentTab = 'miners';
+      function updateUI() {
+        document.getElementById('diamondsDisplay').textContent = Math.floor(state.diamonds);
+        document.getElementById('moneyDisplay').textContent = Math.floor(state.money);
+        document.getElementById('oilDisplay').textContent = Math.floor(state.oil*100)/100;
+        const clickMul = (state.boostActive && Date.now()<state.boostEnd) ? 2 : 1;
+        document.getElementById('clickValue').textContent = state.pickaxeLevel * clickMul;
+
+        document.getElementById('bonusesPanel').innerHTML = `
+          <div class="bonus-item">⚙️ Множ: <span>${state.globalMinerMult.toFixed(2)}</span></div>
+          <div class="bonus-item">📈 Бонус: <span>+${state.flatMinerBonus.toFixed(2)}</span></div>
+          <div class="bonus-item">🛢️ Пасс: <span>${(state.oilMiner*OIL_MINER_PROD+state.oilPerSecBonus).toFixed(2)}/с</span></div>
+          <div class="bonus-item">💥 Крит: <span>${Math.floor(state.critChance*100)}%</span></div>
+          <div class="bonus-item">🔥 Бустер: <span>${(state.boostActive && Date.now()<state.boostEnd) ? Math.ceil((state.boostEnd-Date.now())/60000)+'м' : 'нет'}</span></div>
+        `;
+
+        let totalDiamondsPerSec = 0;
+        for (let i=0; i<7; i++) {
+          if (state.miners[i]>0) totalDiamondsPerSec += (minerBase[i].baseProd*state.globalMinerMult+state.flatMinerBonus)*state.miners[i];
         }
-        document.getElementById('giveOilBtn')?.addEventListener('click', () => {
-          const sel = document.querySelector('input[name="userSelect"]:checked');
-          if (sel) {
-            const idx = parseInt(sel.value);
-            users[idx].oil += 50;
-            saveUsers(); renderUsers();
-            showPopup('Выдано 50🛢️ пользователю');
+        const totalOilPerSec = state.oilMiner*OIL_MINER_PROD + state.oilPerSecBonus;
+        document.getElementById('autoInfo').innerHTML = `⛏️ ${totalDiamondsPerSec.toFixed(2)} 💎/с | 🛢️ ${totalOilPerSec.toFixed(3)}/с`;
+        renderTab();
+      }
+
+      function renderTab() {
+        const c = document.getElementById('tabContent');
+        c.innerHTML = '';
+        if (currentTab==='miners') renderMiners(c);
+        else if (currentTab==='shop') renderShop(c);
+        else if (currentTab==='quests') renderQuests(c);
+        else if (currentTab==='profile') renderProfile(c);
+      }
+
+      function renderMiners(c) {
+        let h = '';
+        for (let i=0; i<7; i++) {
+          const m=minerBase[i]; const cnt=state.miners[i];
+          const prod=m.baseProd*state.globalMinerMult+state.flatMinerBonus;
+          const cost=getMinerCost(i);
+          h+=`<div class="miner-row"><div><div>👷 Шахтёр ур.${m.lvl} (${cnt} шт.)</div><div class="prod">+${prod.toFixed(2)} 💎/с</div></div>
+          <button class="btn-sm hire-miner" data-idx="${i}" ${state.money<cost?'disabled':''}>💰 ${cost}</button></div>`;
+        }
+        h+=`<div class="miner-row"><div><div>🛢️ Нефтяной шахтёр (${state.oilMiner} шт.)</div><div class="prod">+${OIL_MINER_PROD} 🛢️/с</div></div>
+        <button class="btn-sm" id="hireOilMiner" ${state.oil<OIL_MINER_COST?'disabled':''}>🛢️ ${OIL_MINER_COST}</button></div>`;
+        c.innerHTML=h;
+        c.querySelectorAll('.hire-miner').forEach(b=>b.addEventListener('click', ()=>hireMiner(parseInt(b.dataset.idx))));
+        document.getElementById('hireOilMiner')?.addEventListener('click', hireOilMiner);
+      }
+
+      function renderShop(c) {
+        const pc=getPickaxeCost();
+        c.innerHTML=`
+          <div class="shop-item"><div><div>⛏️ Улучшить кирку (ур.${state.pickaxeLevel})</div><div class="prod">+${state.pickaxeLevel+1} за клик</div></div>
+          <button class="btn-sm" id="buyPickaxe" ${state.money<pc?'disabled':''}>💰 ${pc}</button></div>
+          <div class="shop-item"><div><div>📦 Простой бокс (100💰)</div><div class="prod">Малые награды</div></div>
+          <button class="btn-sm" id="box100" ${state.money<100?'disabled':''}>💰 100</button></div>
+          <div class="shop-item"><div><div>📦 Средний бокс (1000💰)</div><div class="prod">Шанс на нефть</div></div>
+          <button class="btn-sm" id="box1000" ${state.money<1000?'disabled':''}>💰 1000</button></div>
+          <div class="shop-item"><div><div>✨ Премиум бокс (10🛢️)</div><div class="prod">Разовые бонусы</div></div>
+          <button class="btn-sm" id="premiumBox" ${state.oil<10?'disabled':''}>🛢️ 10</button></div>
+          <div style="margin-top:10px;font-size:0.8em;opacity:0.6;text-align:center;">1💎 = 0.05💰</div>`;
+        document.getElementById('buyPickaxe')?.addEventListener('click', buyPickaxe);
+        document.getElementById('box100')?.addEventListener('click', openBox100);
+        document.getElementById('box1000')?.addEventListener('click', openBox1000);
+        document.getElementById('premiumBox')?.addEventListener('click', openPremiumBox);
+      }
+
+      function renderQuests(c) {
+        let h=`<div class="shop-item"><div><div>🎁 Ежедневная нефть</div><div class="prod">${canClaimDaily()?'+2 🛢️':'Уже получено'}</div></div>
+          <button class="btn-sm" id="dailyOilBtn" ${!canClaimDaily()?'disabled':''}>Забрать</button></div>
+          <div style="margin-top:12px;font-weight:600;">📋 Задания</div>`;
+        quests.forEach(q=>{
+          const done=state.completedQuests.includes(q.id);
+          const can=!done && q.check();
+          h+=`<div class="quest-item"><div><div>${q.desc}</div><div class="prod">🛢️ ${q.reward}</div></div>
+            <button class="btn-sm claim-q" data-id="${q.id}" ${!can?'disabled':''}>${done?'✓':'Взять'}</button></div>`;
+        });
+        c.innerHTML=h;
+        document.getElementById('dailyOilBtn')?.addEventListener('click', claimDailyOil);
+        c.querySelectorAll('.claim-q').forEach(b=>b.addEventListener('click', ()=>claimQuest(b.dataset.id)));
+      }
+
+      function renderProfile(c) {
+        const refLink = `https://t.me/${BOT_USERNAME}?startapp=ref_${userId}`;
+        const totalPlayTime = state.totalPlayTime + (state.playTimeStart ? Date.now() - state.playTimeStart : 0);
+        const hours = Math.floor(totalPlayTime / 3600000);
+        const minutes = Math.floor((totalPlayTime % 3600000) / 60000);
+
+        let h = `
+          <div class="profile-field"><b>ID:</b> ${userId}</div>
+          <div class="profile-field"><b>Имя:</b> ${user.first_name}</div>
+          <div class="profile-field"><b>Общее время в игре:</b> ${hours} ч ${minutes} мин</div>
+          <div class="profile-field"><b>Реф-ссылка:</b> <a href="${refLink}" target="_blank">${refLink}</a></div>
+          <button class="btn-sm" onclick="navigator.clipboard?.writeText('${refLink}')">📋 Копировать</button>
+          <div style="margin-top:12px;">
+            <button class="btn-sm" id="bindTgBtn">📱 Привязать TG</button>
+            <button class="btn-sm" id="withdrawBtn" ${state.oil<50?'disabled':''}>💸 Вывести нефть</button>
+            <button class="btn-sm" id="depositBtn">💰 Пополнить нефть</button>
+          </div>`;
+
+        if (isAdmin) {
+          h += `<div class="admin-panel"><h4>👑 Админ-панель</h4>
+            <div><b>Управление пользователями (текущее устройство)</b></div>
+            <div id="usersList"></div>
+            <button class="btn-sm" id="giveOilBtn">Выдать 50🛢️ выбранному</button>
+            <button class="btn-sm" id="removeOilBtn">Снять 50🛢️</button>
+            <button class="btn-sm" id="giveBoostBtn">Дать бустер x2 на 30м</button>
+            <hr>
+            <div><b>Ивенты</b></div>
+            <button class="btn-sm" id="eventX2">Включить x2 алмазы на 1ч</button>
+            <button class="btn-sm" id="eventX2off">Выключить ивент</button>
+            <hr>
+            <div><b>Рекламный баннер</b></div>
+            <input id="bannerText" placeholder="Текст баннера" style="width:100%; margin:4px 0;">
+            <input id="bannerLink" placeholder="Ссылка" style="width:100%; margin:4px 0;">
+            <button class="btn-sm" id="saveBanner">Сохранить баннер</button>
+            <hr>
+            <div><b>Задания за подписку</b></div>
+            <input id="subLink" placeholder="Ссылка на канал" style="width:100%; margin:4px 0;">
+            <input id="subReward" placeholder="Награда (нефть)" style="width:100%; margin:4px 0;">
+            <button class="btn-sm" id="addSubQuest">Добавить задание</button>
+            <div id="subQuestsList"></div>
+          </div>`;
+        }
+        c.innerHTML = h;
+
+        document.getElementById('bindTgBtn')?.addEventListener('click', () => {
+          const link = `https://t.me/${BOT_USERNAME}?start=register`;
+          if (tg.openTelegramLink) {
+            tg.openTelegramLink(link);
+          } else {
+            window.open(link, '_blank');
           }
         });
-        document.getElementById('removeOilBtn')?.addEventListener('click', () => {
-          const sel = document.querySelector('input[name="userSelect"]:checked');
-          if (sel) {
-            const idx = parseInt(sel.value);
-            users[idx].oil = Math.max(0, users[idx].oil - 50);
-            saveUsers(); renderUsers();
-            showPopup('Снято 50🛢️');
+
+        document.getElementById('withdrawBtn')?.addEventListener('click', () => {
+          if (state.oil < 50) {
+            showPopup('Недостаточно нефти для вывода (мин. 50 🛢️)');
+          } else {
+            window.open(`https://t.me/nukm0?text=Вывести%20нефть%20${Math.floor(state.oil)}%20🛢️`, '_blank');
           }
         });
-        document.getElementById('giveBoostBtn')?.addEventListener('click', () => {
-          state.boostActive = true;
-          state.boostEnd = Date.now() + 30*60*1000;
-          updateUI(); saveState();
-          showPopup('Бустер активирован на 30 минут (текущий пользователь)');
+        document.getElementById('depositBtn')?.addEventListener('click', () => {
+          window.open(`https://t.me/nukm0?text=Пополнить%20нефть`, '_blank');
         });
-        document.getElementById('eventX2')?.addEventListener('click', () => {
-          state.globalMinerMult *= 2;
-          showPopup('Ивент: x2 добыча шахтёров (условно)');
-          updateUI(); saveState();
-        });
-        document.getElementById('eventX2off')?.addEventListener('click', () => {
-          state.globalMinerMult = 1.0;
-          showPopup('Ивент отключён');
-          updateUI(); saveState();
-        });
-        document.getElementById('saveBanner')?.addEventListener('click', () => {
-          const text = document.getElementById('bannerText').value;
-          const link = document.getElementById('bannerLink').value;
-          localStorage.setItem('adBanner', JSON.stringify({text, link}));
-          showPopup('Баннер сохранён');
-        });
-        document.getElementById('addSubQuest')?.addEventListener('click', () => {
-          const link = document.getElementById('subLink').value;
-          const reward = parseFloat(document.getElementById('subReward').value);
-          if (link && reward > 0) {
-            let subs = JSON.parse(localStorage.getItem('subQuests') || '[]');
-            subs.push({ link, reward, done: false });
-            localStorage.setItem('subQuests', JSON.stringify(subs));
-            document.getElementById('subLink').value = '';
-            document.getElementById('subReward').value = '';
-            renderSubQuests();
+
+        if (isAdmin) {
+          const usersKey = 'minerUsers';
+          let users = JSON.parse(localStorage.getItem(usersKey) || '[]');
+          function saveUsers() { localStorage.setItem(usersKey, JSON.stringify(users)); }
+          function renderUsers() {
+            const list = document.getElementById('usersList');
+            if (!list) return;
+            list.innerHTML = users.map((u,idx) => `<div><input type="radio" name="userSelect" value="${idx}"> ${u.name} (ID:${u.id}) 🛢️${u.oil.toFixed(1)}</div>`).join('');
           }
-        });
-        function renderSubQuests() {
-          const list = document.getElementById('subQuestsList');
-          if (!list) return;
-          let subs = JSON.parse(localStorage.getItem('subQuests') || '[]');
-          list.innerHTML = subs.map((q, idx) => `<div>📢 ${q.link} (🛢️${q.reward}) <button data-idx="${idx}">Выполнить</button></div>`).join('');
-          list.querySelectorAll('button').forEach(b => b.addEventListener('click', (e) => {
-            const idx = parseInt(e.target.dataset.idx);
-            let subs = JSON.parse(localStorage.getItem('subQuests') || '[]');
-            if (subs[idx] && !subs[idx].done) {
-              subs[idx].done = true;
-              state.oil += subs[idx].reward;
+          renderUsers();
+          if (!users.find(u => u.id === userId)) {
+            users.push({ id: userId, name: user.first_name, oil: state.oil, money: state.money });
+            saveUsers();
+          }
+          document.getElementById('giveOilBtn')?.addEventListener('click', () => {
+            const sel = document.querySelector('input[name="userSelect"]:checked');
+            if (sel) {
+              const idx = parseInt(sel.value);
+              users[idx].oil += 50;
+              saveUsers(); renderUsers();
+              showPopup('Выдано 50🛢️ пользователю');
+            }
+          });
+          document.getElementById('removeOilBtn')?.addEventListener('click', () => {
+            const sel = document.querySelector('input[name="userSelect"]:checked');
+            if (sel) {
+              const idx = parseInt(sel.value);
+              users[idx].oil = Math.max(0, users[idx].oil - 50);
+              saveUsers(); renderUsers();
+              showPopup('Снято 50🛢️');
+            }
+          });
+          document.getElementById('giveBoostBtn')?.addEventListener('click', () => {
+            state.boostActive = true;
+            state.boostEnd = Date.now() + 30*60*1000;
+            updateUI(); saveState();
+            showPopup('Бустер активирован на 30 минут (текущий пользователь)');
+          });
+          document.getElementById('eventX2')?.addEventListener('click', () => {
+            state.globalMinerMult *= 2;
+            showPopup('Ивент: x2 добыча шахтёров (условно)');
+            updateUI(); saveState();
+          });
+          document.getElementById('eventX2off')?.addEventListener('click', () => {
+            state.globalMinerMult = 1.0;
+            showPopup('Ивент отключён');
+            updateUI(); saveState();
+          });
+          document.getElementById('saveBanner')?.addEventListener('click', () => {
+            const text = document.getElementById('bannerText').value;
+            const link = document.getElementById('bannerLink').value;
+            localStorage.setItem('adBanner', JSON.stringify({text, link}));
+            showPopup('Баннер сохранён');
+          });
+          document.getElementById('addSubQuest')?.addEventListener('click', () => {
+            const link = document.getElementById('subLink').value;
+            const reward = parseFloat(document.getElementById('subReward').value);
+            if (link && reward > 0) {
+              let subs = JSON.parse(localStorage.getItem('subQuests') || '[]');
+              subs.push({ link, reward, done: false });
               localStorage.setItem('subQuests', JSON.stringify(subs));
-              showPopup(`За подписку: +${subs[idx].reward} 🛢️`);
-              updateUI(); saveState();
+              document.getElementById('subLink').value = '';
+              document.getElementById('subReward').value = '';
               renderSubQuests();
             }
-          }));
+          });
+          function renderSubQuests() {
+            const list = document.getElementById('subQuestsList');
+            if (!list) return;
+            let subs = JSON.parse(localStorage.getItem('subQuests') || '[]');
+            list.innerHTML = subs.map((q, idx) => `<div>📢 ${q.link} (🛢️${q.reward}) <button data-idx="${idx}">Выполнить</button></div>`).join('');
+            list.querySelectorAll('button').forEach(b => b.addEventListener('click', (e) => {
+              const idx = parseInt(e.target.dataset.idx);
+              let subs = JSON.parse(localStorage.getItem('subQuests') || '[]');
+              if (subs[idx] && !subs[idx].done) {
+                subs[idx].done = true;
+                state.oil += subs[idx].reward;
+                localStorage.setItem('subQuests', JSON.stringify(subs));
+                showPopup(`За подписку: +${subs[idx].reward} 🛢️`);
+                updateUI(); saveState();
+                renderSubQuests();
+              }
+            }));
+          }
+          renderSubQuests();
         }
-        renderSubQuests();
+
+        const ad = JSON.parse(localStorage.getItem('adBanner') || 'null');
+        if (ad && ad.text) {
+          const bannerDiv = document.createElement('div');
+          bannerDiv.style.cssText = 'margin-top:10px;padding:10px;background:rgba(255,215,0,0.1);border-radius:12px;text-align:center;';
+          bannerDiv.innerHTML = `<a href="${ad.link}" target="_blank" style="color:#f7d794;">${ad.text}</a>`;
+          c.appendChild(bannerDiv);
+        }
       }
 
-      // Рекламный баннер для всех
-      const ad = JSON.parse(localStorage.getItem('adBanner') || 'null');
-      if (ad && ad.text) {
-        const bannerDiv = document.createElement('div');
-        bannerDiv.style.cssText = 'margin-top:10px;padding:10px;background:rgba(255,215,0,0.1);border-radius:12px;text-align:center;';
-        bannerDiv.innerHTML = `<a href="${ad.link}" target="_blank" style="color:#f7d794;">${ad.text}</a>`;
-        c.appendChild(bannerDiv);
-      }
-    }
-
-    // Табы
-    document.querySelectorAll('.tab').forEach(tab => {
-      tab.addEventListener('click', (e) => {
-        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-        e.target.classList.add('active');
-        currentTab = e.target.dataset.tab;
-        updateUI();
+      // Табы
+      document.querySelectorAll('.tab').forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          e.target.classList.add('active');
+          currentTab = e.target.dataset.tab;
+          updateUI();
+        });
       });
-    });
 
-    document.getElementById('sellAllBtn').addEventListener('click', sellAll);
+      document.getElementById('sellAllBtn').addEventListener('click', sellAll);
 
-    // Авто-тик
-    function autoTick() {
-      if (state.boostActive && Date.now() >= state.boostEnd) {
-        state.boostActive = false; state.boostEnd = 0;
+      function autoTick() {
+        if (state.boostActive && Date.now() >= state.boostEnd) {
+          state.boostActive = false; state.boostEnd = 0;
+        }
+        let diamondsGain = 0;
+        for (let i=0; i<7; i++) {
+          if (state.miners[i]>0) diamondsGain += (minerBase[i].baseProd*state.globalMinerMult+state.flatMinerBonus)*state.miners[i];
+        }
+        const oilGain = state.oilMiner*OIL_MINER_PROD + state.oilPerSecBonus;
+        if (diamondsGain>0) { state.diamonds+=diamondsGain; state.totalDiamondsMined+=diamondsGain; }
+        if (oilGain>0) state.oil+=oilGain;
+        updateUI(); saveState();
       }
-      let diamondsGain = 0;
-      for (let i=0; i<7; i++) {
-        if (state.miners[i]>0) diamondsGain += (minerBase[i].baseProd*state.globalMinerMult+state.flatMinerBonus)*state.miners[i];
-      }
-      const oilGain = state.oilMiner*OIL_MINER_PROD + state.oilPerSecBonus;
-      if (diamondsGain>0) { state.diamonds+=diamondsGain; state.totalDiamondsMined+=diamondsGain; }
-      if (oilGain>0) state.oil+=oilGain;
-      updateUI(); saveState();
+
+      loadState();
+      if (!state.registered) register();
+      applyOfflineProgress();
+      updateUI();
+      setInterval(autoTick, 1000);
+      window.addEventListener('beforeunload', saveState);
     }
 
-    // Инициализация
-    loadState();
-    if (!state.registered) register();
-    applyOfflineProgress();
-    updateUI();
-    setInterval(autoTick, 1000);
-    window.addEventListener('beforeunload', saveState);
+    setTimeout(initGame, 200);
   })();
 </script>
 </body>
