@@ -176,7 +176,7 @@
 
 <script>
   (() => {
-    const BOT_USERNAME = '@minermine1_bot'; // ← замените на юзернейм вашего бота
+    const BOT_USERNAME = 'minermine1_bot';
 
     function showMessage(msg) {
       document.body.innerHTML = `<div style="color:white; text-align:center; padding:40px;">${msg}</div>`;
@@ -247,10 +247,9 @@
         return Math.floor(20 * Math.pow(1.6, state.pickaxeLevel - 1));
       }
 
-      // Загрузка/сохранение
       function loadState() {
         try {
-          const saved = localStorage.getItem('minerGameV7');
+          const saved = localStorage.getItem('minerGameV8');
           if (saved) {
             const parsed = JSON.parse(saved);
             state = { ...defaultState, ...parsed };
@@ -264,7 +263,7 @@
         state.lastSaveTime = Date.now();
         if (state.playTimeStart) state.totalPlayTime += Date.now() - state.playTimeStart;
         state.playTimeStart = Date.now();
-        try { localStorage.setItem('minerGameV7', JSON.stringify(state)); } catch(e) {}
+        try { localStorage.setItem('minerGameV8', JSON.stringify(state)); } catch(e) {}
       }
 
       function register() {
@@ -323,7 +322,6 @@
         updateUI(); saveState(); checkQuests();
       }
 
-      // Удержание кнопки
       let holdInterval = null;
       const mineBtn = document.getElementById('mineButton');
       function startHold(e) {
@@ -449,7 +447,6 @@
         }
       }
 
-      // UI
       let currentTab = 'miners';
       function updateUI() {
         document.getElementById('diamondsDisplay').textContent = Math.floor(state.diamonds);
@@ -693,7 +690,6 @@
         }
       }
 
-      // Табы
       document.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', (e) => {
           document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
