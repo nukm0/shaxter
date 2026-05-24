@@ -25,7 +25,7 @@
       overflow-x: hidden;
       position: relative;
     }
-    /* Анимированный фон */
+    /* Анимированная шахта */
     .mine-bg {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       pointer-events: none; z-index: 0;
@@ -180,9 +180,20 @@
 
 <script>
   (() => {
+    // Строгая проверка на Telegram WebApp
     const tg = window.Telegram?.WebApp;
-    if (tg) { tg.ready(); tg.expand(); }
-    const currentUser = tg?.initDataUnsafe?.user || { id: 0, first_name: 'Гость' };
+    if (!tg) {
+      document.body.innerHTML = '<div style="color:white; text-align:center; padding:40px;">Ошибка: откройте мини-приложение через Telegram бота</div>';
+      return;
+    }
+    tg.ready();
+    tg.expand();
+
+    const currentUser = tg.initDataUnsafe?.user;
+    if (!currentUser || !currentUser.id) {
+      document.body.innerHTML = '<div style="color:white; text-align:center; padding:40px;">Не удалось получить данные пользователя. Убедитесь, что вы открыли приложение через кнопку меню бота.</div>';
+      return;
+    }
     const userId = currentUser.id;
     const isAdmin = userId === 998579758;
 
@@ -230,7 +241,7 @@
     // Загрузка/сохранение
     function loadState() {
       try {
-        const saved = localStorage.getItem('minerGameV5');
+        const saved = localStorage.getItem('minerGameV6');
         if (saved) {
           const parsed = JSON.parse(saved);
           state = { ...defaultState, ...parsed };
@@ -244,7 +255,7 @@
       state.lastSaveTime = Date.now();
       if (state.playTimeStart) state.totalPlayTime += Date.now() - state.playTimeStart;
       state.playTimeStart = Date.now();
-      try { localStorage.setItem('minerGameV5', JSON.stringify(state)); } catch(e) {}
+      try { localStorage.setItem('minerGameV6', JSON.stringify(state)); } catch(e) {}
     }
 
     function register() {
@@ -514,8 +525,8 @@
     }
 
     function renderProfile(c) {
-      // Используйте юзернейм вашего бота
-      const BOT_USERNAME = 'YOUR_BOT_USERNAME'; // ← Замените на реальный!
+      // Замените на юзернейм вашего бота
+      const BOT_USERNAME = 'YOUR_BOT_USERNAME';
       const refLink = `https://t.me/${BOT_USERNAME}?startapp=ref_${userId}`;
       const totalPlayTime = state.totalPlayTime + (state.playTimeStart ? Date.now() - state.playTimeStart : 0);
       const hours = Math.floor(totalPlayTime / 3600000);
@@ -562,7 +573,7 @@
       // Кнопка "Привязать TG"
       document.getElementById('bindTgBtn')?.addEventListener('click', () => {
         const link = `https://t.me/${BOT_USERNAME}?start=register`;
-        if (tg?.openTelegramLink) {
+        if (tg.openTelegramLink) {
           tg.openTelegramLink(link);
         } else {
           window.open(link, '_blank');
@@ -581,7 +592,7 @@
         window.open(`https://t.me/nukm0?text=Пополнить%20нефть`, '_blank');
       });
 
-      // Админ-функции (как ранее)
+      // Админ-функции
       if (isAdmin) {
         const usersKey = 'minerUsers';
         let users = JSON.parse(localStorage.getItem(usersKey) || '[]');
